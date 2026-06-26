@@ -1,27 +1,110 @@
+import json
 from datetime import datetime, timedelta
 
 import pandas as pd
+from pandas.errors import EmptyDataError
 
 from src.api_client import APIFootballClient
+from src.api_config import API_RETRY_COOLDOWN_MINUTES
 from src.api_config import API_CACHE_META, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
 from src.api_config import CACHE_TTL_HOURS, LIVE_FIXTURES_CSV, LIVE_MATCH_STATS_CSV
-from src.api_config import LIVE_ODDS_CSV, LIVE_STANDINGS_CSV, LIVE_TEAMS_CSV
+from src.api_config import LIVE_COUNTRIES_CSV, LIVE_ODDS_CSV, LIVE_STANDINGS_CSV
+from src.api_config import LIVE_TEAMS_CSV
 from src.api_config import has_api_key
-from src.data_loader import HOST_TEAMS
+from src.data_loader import HOST_TEAMS, load_sample_data
+
+
+COUNTRY_FALLBACK_TEAM_COUNT = 48
+COUNTRY_FALLBACK_GROUPS = list("ABCDEFGHIJKL")
+COUNTRY_FALLBACK_REQUIRED_TEAMS = ["Scotland"]
+COUNTRY_FALLBACK_REPLACEMENTS = {"Wales": "Scotland"}
+
+
+def parse_timestamp(value):
+    """Parse an ISO timestamp from cache metadata."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def read_cache_state():
+    """Read API cache metadata with backward compatibility for old timestamps."""
+    if not API_CACHE_META.exists():
+        return {}
+
+    text = API_CACHE_META.read_text().strip()
+    if not text:
+        return {}
+
+    try:
+        state = json.loads(text)
+    except json.JSONDecodeError:
+        return {"last_success": text}
+
+    return state if isinstance(state, dict) else {}
+
+
+def write_cache_state(**updates):
+    """Persist API refresh metadata without exposing credentials."""
+    API_CACHE_META.parent.mkdir(parents=True, exist_ok=True)
+    state = read_cache_state()
+    state.update(updates)
+    API_CACHE_META.write_text(json.dumps(state, indent=2, sort_keys=True))
 
 
 def cache_is_fresh(ttl_hours=CACHE_TTL_HOURS):
     """Return True when local live CSVs were updated recently."""
-    if not API_CACHE_META.exists():
+    timestamp = parse_timestamp(read_cache_state().get("last_success"))
+    if not timestamp:
         return False
-    timestamp = datetime.fromisoformat(API_CACHE_META.read_text().strip())
     return datetime.now() - timestamp < timedelta(hours=ttl_hours)
+
+
+def refresh_is_on_cooldown(cooldown_minutes=API_RETRY_COOLDOWN_MINUTES):
+    """Return True when an API refresh was attempted too recently."""
+    timestamp = parse_timestamp(read_cache_state().get("last_attempt"))
+    if not timestamp:
+        return False
+    return datetime.now() - timestamp < timedelta(minutes=cooldown_minutes)
+
+
+def minutes_until_retry(cooldown_minutes=API_RETRY_COOLDOWN_MINUTES):
+    """Return whole minutes until the next non-forced refresh is allowed."""
+    timestamp = parse_timestamp(read_cache_state().get("last_attempt"))
+    if not timestamp:
+        return 0
+    retry_at = timestamp + timedelta(minutes=cooldown_minutes)
+    seconds = max(0, (retry_at - datetime.now()).total_seconds())
+    return int((seconds + 59) // 60)
+
+
+def live_cache_exists():
+    """Return True when the minimum local live dataset is readable."""
+    if not LIVE_TEAMS_CSV.exists() or LIVE_TEAMS_CSV.stat().st_size <= 1:
+        return False
+    try:
+        return not pd.read_csv(LIVE_TEAMS_CSV).empty
+    except (EmptyDataError, OSError):
+        return False
+
+
+def mark_cache_attempt():
+    """Record that a provider refresh was attempted."""
+    write_cache_state(last_attempt=datetime.now().isoformat())
 
 
 def mark_cache_updated():
     """Write a local timestamp after successful API refresh."""
-    API_CACHE_META.parent.mkdir(parents=True, exist_ok=True)
-    API_CACHE_META.write_text(datetime.now().isoformat())
+    now = datetime.now().isoformat()
+    write_cache_state(last_attempt=now, last_success=now, last_error="")
+
+
+def mark_cache_error(error):
+    """Record a failed provider refresh so reruns do not retry immediately."""
+    write_cache_state(last_attempt=datetime.now().isoformat(), last_error=str(error))
 
 
 def safe_get(client_method, *args, **kwargs):
@@ -68,6 +151,45 @@ def flatten_teams(raw_teams):
             }
         )
     return pd.DataFrame(rows)
+
+
+def flatten_countries(raw_countries):
+    """Normalize API-Football countries into a local directory CSV."""
+    rows = []
+    for item in raw_countries:
+        country_name = item.get("name")
+        if not country_name:
+            continue
+        rows.append(
+            {
+                "name": country_name,
+                "code": item.get("code"),
+                "flag": item.get("flag"),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def build_country_fallback_teams(countries_df):
+    """Create a tournament-shaped candidate list from the countries endpoint."""
+    if countries_df.empty or "name" not in countries_df.columns:
+        return pd.DataFrame()
+
+    available_countries = {
+        str(country).strip().lower(): str(country).strip()
+        for country in countries_df["name"].dropna()
+    }
+    sample = load_sample_data().head(COUNTRY_FALLBACK_TEAM_COUNT).copy()
+    sample["team"] = sample["team"].replace(COUNTRY_FALLBACK_REPLACEMENTS)
+
+    for team_name in COUNTRY_FALLBACK_REQUIRED_TEAMS:
+        if team_name.lower() not in available_countries:
+            continue
+        if team_name not in sample["team"].values:
+            sample.iloc[-1, sample.columns.get_loc("team")] = team_name
+
+    sample["data_source_note"] = "API-Football /countries fallback"
+    return sample
 
 
 def flatten_fixtures(raw_fixtures):
@@ -236,44 +358,88 @@ def build_fixture_lookup(fixtures_df):
 
 def save_live_data(force=False):
     """Fetch API-Football data and save normalized local CSV snapshots."""
-    if not has_api_key():
-        return False, "Missing API_FOOTBALL_KEY. Using sample CSV data."
+    has_cached_data = live_cache_exists()
 
-    if cache_is_fresh() and not force and LIVE_TEAMS_CSV.exists():
+    if has_cached_data and cache_is_fresh() and not force:
         return True, "Using cached live API CSV files."
 
-    client = APIFootballClient()
-    raw_teams = client.teams(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
-    raw_fixtures = client.fixtures(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
-    raw_standings = safe_get(
-        client.standings, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
-    )
-    raw_odds = safe_get(client.odds, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+    if not has_api_key():
+        if has_cached_data:
+            return True, "Using cached live API CSV files; API_FOOTBALL_KEY is missing."
+        return False, "Missing API_FOOTBALL_KEY. Using sample CSV data."
 
-    fixtures_df = flatten_fixtures(raw_fixtures)
-    standings_df = flatten_standings(raw_standings)
-    teams_df = merge_live_model_data(
-        flatten_teams(raw_teams), standings_df, fixtures_df
-    )
-    odds_df = flatten_odds(raw_odds)
+    if refresh_is_on_cooldown() and not force:
+        minutes = minutes_until_retry()
+        retry_message = (
+            "Next API refresh is available "
+            f"in about {minutes} minute{'s' if minutes != 1 else ''}."
+        )
+        if has_cached_data:
+            return True, f"Using cached live API CSV files; {retry_message}"
+        return False, f"API refresh was attempted recently. {retry_message}"
 
-    stats_frames = []
-    for fixture_id in fixtures_df.get("fixture_id", pd.Series(dtype=object)).dropna().head(25):
-        stats = safe_get(client.statistics, fixture_id)
-        if stats:
-            frame = flatten_match_stats(stats)
-            frame["fixture_id"] = fixture_id
-            stats_frames.append(frame)
-    stats_df = pd.concat(stats_frames, ignore_index=True) if stats_frames else pd.DataFrame()
+    mark_cache_attempt()
 
-    LIVE_TEAMS_CSV.parent.mkdir(parents=True, exist_ok=True)
-    teams_df.to_csv(LIVE_TEAMS_CSV, index=False)
-    fixtures_df.to_csv(LIVE_FIXTURES_CSV, index=False)
-    standings_df.to_csv(LIVE_STANDINGS_CSV, index=False)
-    stats_df.to_csv(LIVE_MATCH_STATS_CSV, index=False)
-    odds_df.to_csv(LIVE_ODDS_CSV, index=False)
-    mark_cache_updated()
+    try:
+        client = APIFootballClient()
+        raw_teams = client.teams(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+        raw_fixtures = client.fixtures(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+        raw_standings = safe_get(
+            client.standings, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
+        )
+        raw_odds = safe_get(client.odds, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+        raw_countries = safe_get(client.countries)
 
+        fixtures_df = flatten_fixtures(raw_fixtures)
+        standings_df = flatten_standings(raw_standings)
+        countries_df = flatten_countries(raw_countries)
+        teams_df = merge_live_model_data(
+            flatten_teams(raw_teams), standings_df, fixtures_df
+        )
+        used_country_fallback = False
+        if teams_df.empty:
+            teams_df = build_country_fallback_teams(countries_df)
+            used_country_fallback = True
+            if teams_df.empty:
+                raise ValueError(
+                    "API-Football returned no teams for "
+                    f"league={API_FOOTBALL_LEAGUE}, season={API_FOOTBALL_SEASON}, "
+                    "and the /countries fallback was unavailable."
+                )
+        odds_df = flatten_odds(raw_odds)
+
+        stats_frames = []
+        fixture_ids = fixtures_df.get(
+            "fixture_id", pd.Series(dtype=object)
+        ).dropna().head(25)
+        for fixture_id in fixture_ids:
+            stats = safe_get(client.statistics, fixture_id)
+            if stats:
+                frame = flatten_match_stats(stats)
+                frame["fixture_id"] = fixture_id
+                stats_frames.append(frame)
+        stats_df = (
+            pd.concat(stats_frames, ignore_index=True)
+            if stats_frames
+            else pd.DataFrame()
+        )
+
+        LIVE_TEAMS_CSV.parent.mkdir(parents=True, exist_ok=True)
+        teams_df.to_csv(LIVE_TEAMS_CSV, index=False)
+        fixtures_df.to_csv(LIVE_FIXTURES_CSV, index=False)
+        standings_df.to_csv(LIVE_STANDINGS_CSV, index=False)
+        stats_df.to_csv(LIVE_MATCH_STATS_CSV, index=False)
+        odds_df.to_csv(LIVE_ODDS_CSV, index=False)
+        countries_df.to_csv(LIVE_COUNTRIES_CSV, index=False)
+        mark_cache_updated()
+    except Exception as error:
+        mark_cache_error(error)
+        if has_cached_data:
+            return True, "API refresh failed; using cached live API CSV files."
+        return False, "API refresh failed. Using sample CSV data."
+
+    if used_country_fallback:
+        return True, "Updated live API CSV files from API-Football /countries fallback."
     return True, "Updated live API CSV files."
 
 
@@ -283,7 +449,10 @@ def load_live_model_data(force=False):
     if not ok or not LIVE_TEAMS_CSV.exists():
         return pd.DataFrame(), message
 
-    live = pd.read_csv(LIVE_TEAMS_CSV)
+    try:
+        live = pd.read_csv(LIVE_TEAMS_CSV)
+    except EmptyDataError:
+        return pd.DataFrame(), "Cached live API CSV is empty. Using sample CSV data."
     return live, message
 
 

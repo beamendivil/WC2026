@@ -125,6 +125,8 @@ streamlit run app.py
 
 Then choose `Live API` in the sidebar. If `API_FOOTBALL_KEY` is missing, or if the API data is not yet a complete 48-team tournament dataset, the app falls back to `data/sample_teams.csv` and shows a warning.
 
+To avoid excessive provider requests, live data is cached locally for 12 hours. If an API refresh fails, the app records the attempt and waits 30 minutes before trying again. During that cooldown it uses the cached CSV files when available, otherwise it falls back to sample data.
+
 Live API snapshots are saved locally:
 
 ```text
@@ -133,7 +135,10 @@ data/live_fixtures.csv
 data/live_standings.csv
 data/live_match_stats.csv
 data/live_odds.csv
+data/live_countries.csv
 ```
+
+When the World Cup league endpoint returns no teams, the app uses API-Football `GET /countries` as a country-directory fallback. That fallback keeps the simulator's required 48-team shape and includes Scotland when the provider returns it, but it should be treated as candidate-country data rather than confirmed tournament qualification data.
 
 API-Football fields like fixtures, standings, teams, match status, venue city, statistics, and odds are real when the provider returns them. Model fields not directly provided by API-Football, such as FIFA rank, Elo, xG, xGA, travel distance, and rest days, use safe placeholders until a dedicated data source is connected.
 

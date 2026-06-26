@@ -32,6 +32,9 @@ class APIFootballClient:
     def teams(self, league=1, season=2026):
         return self._get("teams", {"league": league, "season": season})
 
+    def countries(self):
+        return self._get("countries")
+
     def standings(self, league=1, season=2026):
         return self._get("standings", {"league": league, "season": season})
 
