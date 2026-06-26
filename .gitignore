@@ -1,0 +1,5 @@
+.env
+__pycache__/
+*.pyc
+data/live_*.csv
+data/api_cache_timestamp.txt
