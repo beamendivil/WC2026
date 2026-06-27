@@ -8,7 +8,7 @@ from src.explanations import MATHESON_NOTE, MODEL_COLUMNS
 from src.explanations import build_data_readiness_table, build_team_explanations
 from src.features import add_strength_scores, calculate_tournament_difficulty_index
 from src.model import win_probability
-from src.simulator import run_simulations
+from src.simulator import predict_tournament_bracket, run_simulations
 from src.update_data import load_live_model_data
 
 
@@ -196,6 +196,68 @@ def render_match_predictor(teams):
     )
 
 
+def render_projected_pairings(teams):
+    """Render one projected knockout bracket from the simulated group stage."""
+    st.subheader("Projected Upcoming Pairings")
+    st.write(
+        "Project the group stage, then follow the predicted knockout matchups "
+        "from the Round of 32 through the Final."
+    )
+
+    projection_signature = tuple(
+        teams.sort_values("team")[["team", "strength_score"]]
+        .round({"strength_score": 6})
+        .itertuples(index=False, name=None)
+    )
+    if st.session_state.get("projection_signature") != projection_signature:
+        st.session_state.pop("projected_pairings", None)
+        st.session_state.pop("projected_champion", None)
+
+    if st.button("Predict upcoming pairings"):
+        pairings, champion = predict_tournament_bracket(teams)
+        st.session_state["projected_pairings"] = pairings
+        st.session_state["projected_champion"] = champion
+        st.session_state["projection_signature"] = projection_signature
+
+    pairings = st.session_state.get("projected_pairings")
+    if pairings is None:
+        return
+
+    round_names = pairings["round"].drop_duplicates().tolist()
+    tabs = st.tabs(round_names)
+    for tab, round_name in zip(tabs, round_names):
+        round_matches = pairings.loc[
+            pairings["round"] == round_name,
+            [
+                "match",
+                "team_a",
+                "team_a_win_probability",
+                "team_b",
+                "team_b_win_probability",
+                "predicted_winner",
+            ],
+        ].copy()
+        round_matches.columns = [
+            "Match",
+            "Team A",
+            "Team A win %",
+            "Team B",
+            "Team B win %",
+            "Predicted winner",
+        ]
+        round_matches["Team A win %"] = round_matches["Team A win %"].round(1)
+        round_matches["Team B win %"] = round_matches["Team B win %"].round(1)
+        tab.dataframe(round_matches, width="stretch", hide_index=True)
+
+    st.success(
+        f"Projected champion: {st.session_state['projected_champion']}"
+    )
+    st.caption(
+        "This is one model projection. Run it again to explore another possible "
+        "group-stage and knockout path."
+    )
+
+
 def render_simulation_results(teams, difficulty_index, number_of_simulations):
     """Run Monte Carlo simulations and render the result tables and charts."""
     st.subheader("Tournament Simulation")
@@ -288,6 +350,7 @@ def main():
     render_difficulty_index(difficulty_index)
     render_team_explanations(teams, difficulty_index)
     render_match_predictor(teams)
+    render_projected_pairings(teams)
     render_simulation_results(
         teams, difficulty_index, settings["number_of_simulations"]
     )

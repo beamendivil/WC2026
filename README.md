@@ -29,6 +29,7 @@ README.md
 - CSV upload or built-in sample data
 - Team table with calculated strength scores
 - Match winner prediction with logistic win probabilities
+- Projected upcoming knockout pairings with round-by-round win probabilities
 - Group stage simulation for 12 groups of 4 teams
 - Advancement for top 2 teams in each group plus 8 best third-place teams
 - Knockout simulation from Round of 32 through the Final

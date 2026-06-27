@@ -3,7 +3,16 @@ import itertools
 import numpy as np
 import pandas as pd
 
-from src.model import estimate_goals, predict_match_winner
+from src.model import estimate_goals, predict_match_winner, win_probability
+
+
+KNOCKOUT_ROUND_NAMES = {
+    32: "Round of 32",
+    16: "Round of 16",
+    8: "Quarterfinals",
+    4: "Semifinals",
+    2: "Final",
+}
 
 
 def simulate_group_match(team_a, team_b):
@@ -93,19 +102,39 @@ def simulate_group_stage(teams):
     return pd.concat([automatic_qualifiers, best_third_place_teams], ignore_index=True)
 
 
-def simulate_knockout_round(teams, route_difficulty):
-    """Simulate one knockout round and return the winners."""
+def simulate_knockout_round(teams, route_difficulty, round_name=None):
+    """Simulate one knockout round and return its winners and optional pairings."""
     winners = []
+    pairings = []
 
     for index in range(0, len(teams), 2):
         team_a = teams.iloc[index]
         team_b = teams.iloc[index + 1]
+        probability_a = win_probability(
+            team_a["strength_score"], team_b["strength_score"]
+        )
         winner_name, _ = predict_match_winner(team_a, team_b, allow_draw=False)
         route_difficulty[team_a["team"]] += team_b["strength_score"]
         route_difficulty[team_b["team"]] += team_a["strength_score"]
         winners.append(team_a if winner_name == team_a["team"] else team_b)
 
-    return pd.DataFrame(winners).reset_index(drop=True)
+        if round_name:
+            pairings.append(
+                {
+                    "round": round_name,
+                    "match": index // 2 + 1,
+                    "team_a": team_a["team"],
+                    "team_b": team_b["team"],
+                    "team_a_win_probability": probability_a * 100,
+                    "team_b_win_probability": (1 - probability_a) * 100,
+                    "predicted_winner": winner_name,
+                }
+            )
+
+    winners_df = pd.DataFrame(winners).reset_index(drop=True)
+    if round_name:
+        return winners_df, pairings
+    return winners_df
 
 
 def seed_knockout_teams(qualified_teams):
@@ -137,6 +166,23 @@ def simulate_tournament(teams):
         "champion": champion,
         "champion_route_difficulty": route_difficulty[champion],
     }
+
+
+def predict_tournament_bracket(teams):
+    """Project one tournament and retain every knockout pairing."""
+    qualified_teams = simulate_group_stage(teams)
+    knockout_teams = seed_knockout_teams(qualified_teams)
+    route_difficulty = {team: 0 for team in teams["team"]}
+    pairings = []
+
+    while len(knockout_teams) > 1:
+        round_name = KNOCKOUT_ROUND_NAMES[len(knockout_teams)]
+        knockout_teams, round_pairings = simulate_knockout_round(
+            knockout_teams, route_difficulty, round_name
+        )
+        pairings.extend(round_pairings)
+
+    return pd.DataFrame(pairings), knockout_teams.iloc[0]["team"]
 
 
 def run_simulations(teams, number_of_simulations, progress_callback=None):
