@@ -201,6 +201,9 @@ def flatten_fixtures(raw_fixtures):
         venue = fixture.get("venue", {}) or {}
         status = fixture.get("status", {}) or {}
         league = item.get("league", {}) or {}
+        goals = item.get("goals", {}) or {}
+        score = item.get("score", {}) or {}
+        penalty = score.get("penalty", {}) or {}
         rows.append(
             {
                 "fixture_id": fixture.get("id"),
@@ -211,6 +214,10 @@ def flatten_fixtures(raw_fixtures):
                 "team_away": teams.get("away", {}).get("name"),
                 "team_home_id": teams.get("home", {}).get("id"),
                 "team_away_id": teams.get("away", {}).get("id"),
+                "goals_home": goals.get("home"),
+                "goals_away": goals.get("away"),
+                "penalty_home": penalty.get("home"),
+                "penalty_away": penalty.get("away"),
                 "venue_city": venue.get("city", "Unknown"),
                 "venue_country": "Unknown",
                 "match_status": status.get("short", "TBD"),
@@ -454,6 +461,16 @@ def load_live_model_data(force=False):
     except EmptyDataError:
         return pd.DataFrame(), "Cached live API CSV is empty. Using sample CSV data."
     return live, message
+
+
+def load_cached_fixtures():
+    """Load cached tournament fixtures without triggering another API request."""
+    if not LIVE_FIXTURES_CSV.exists() or LIVE_FIXTURES_CSV.stat().st_size <= 1:
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(LIVE_FIXTURES_CSV)
+    except (EmptyDataError, OSError):
+        return pd.DataFrame()
 
 
 if __name__ == "__main__":

@@ -8,8 +8,12 @@ from src.explanations import MATHESON_NOTE, MODEL_COLUMNS
 from src.explanations import build_data_readiness_table, build_team_explanations
 from src.features import add_strength_scores, calculate_tournament_difficulty_index
 from src.model import win_probability
-from src.simulator import predict_tournament_bracket, run_simulations
-from src.update_data import load_live_model_data
+from src.simulator import (
+    predict_tournament_bracket,
+    run_pairing_simulations,
+    run_simulations,
+)
+from src.update_data import load_cached_fixtures, load_live_model_data
 
 
 @st.cache_data
@@ -196,26 +200,46 @@ def render_match_predictor(teams):
     )
 
 
-def render_projected_pairings(teams):
-    """Render one projected knockout bracket from the simulated group stage."""
+def render_projected_pairings(teams, fixtures, number_of_simulations):
+    """Render an official bracket projection and pairing probabilities."""
     st.subheader("Projected Upcoming Pairings")
     st.write(
-        "Project the group stage, then follow the predicted knockout matchups "
-        "from the Round of 32 through the Final."
+        "Project FIFA's official knockout bracket and estimate how often each "
+        "possible pairing occurs."
     )
 
-    projection_signature = tuple(
+    team_signature = tuple(
         teams.sort_values("team")[["team", "strength_score"]]
         .round({"strength_score": 6})
         .itertuples(index=False, name=None)
     )
+    fixture_signature = (
+        tuple(
+            fixtures.fillna("")
+            .astype(str)
+            .itertuples(index=False, name=None)
+        )
+        if not fixtures.empty
+        else ()
+    )
+    projection_signature = (team_signature, fixture_signature, number_of_simulations)
     if st.session_state.get("projection_signature") != projection_signature:
         st.session_state.pop("projected_pairings", None)
+        st.session_state.pop("pairing_probabilities", None)
         st.session_state.pop("projected_champion", None)
 
-    if st.button("Predict upcoming pairings"):
-        pairings, champion = predict_tournament_bracket(teams)
+    if st.button("Run pairing simulations"):
+        progress_bar = st.progress(0)
+        pairing_probabilities = run_pairing_simulations(
+            teams,
+            number_of_simulations,
+            fixtures=fixtures,
+            progress_callback=progress_bar.progress,
+        )
+        pairings, champion = predict_tournament_bracket(teams, fixtures)
+        progress_bar.empty()
         st.session_state["projected_pairings"] = pairings
+        st.session_state["pairing_probabilities"] = pairing_probabilities
         st.session_state["projected_champion"] = champion
         st.session_state["projection_signature"] = projection_signature
 
@@ -223,42 +247,42 @@ def render_projected_pairings(teams):
     if pairings is None:
         return
 
+    pairing_probabilities = st.session_state["pairing_probabilities"]
     round_names = pairings["round"].drop_duplicates().tolist()
     tabs = st.tabs(round_names)
     for tab, round_name in zip(tabs, round_names):
-        round_matches = pairings.loc[
-            pairings["round"] == round_name,
+        round_matches = pairing_probabilities.loc[
+            pairing_probabilities["round"] == round_name,
             [
-                "match",
                 "team_a",
-                "team_a_win_probability",
                 "team_b",
-                "team_b_win_probability",
-                "predicted_winner",
+                "pairing_probability",
+                "simulations",
             ],
-        ].copy()
+        ].head(50).copy()
         round_matches.columns = [
-            "Match",
             "Team A",
-            "Team A win %",
             "Team B",
-            "Team B win %",
-            "Predicted winner",
+            "Pairing probability %",
+            "Simulations",
         ]
-        round_matches["Team A win %"] = round_matches["Team A win %"].round(1)
-        round_matches["Team B win %"] = round_matches["Team B win %"].round(1)
+        round_matches["Pairing probability %"] = round_matches[
+            "Pairing probability %"
+        ].round(1)
         tab.dataframe(round_matches, width="stretch", hide_index=True)
 
     st.success(
-        f"Projected champion: {st.session_state['projected_champion']}"
+        f"Example projected champion: {st.session_state['projected_champion']}"
     )
     st.caption(
-        "This is one model projection. Run it again to explore another possible "
-        "group-stage and knockout path."
+        f"Based on {number_of_simulations:,} simulations using FIFA's official "
+        "match slots. Completed cached fixtures are held fixed."
     )
 
 
-def render_simulation_results(teams, difficulty_index, number_of_simulations):
+def render_simulation_results(
+    teams, difficulty_index, number_of_simulations, fixtures=None
+):
     """Run Monte Carlo simulations and render the result tables and charts."""
     st.subheader("Tournament Simulation")
     if not st.button("Run simulations", type="primary"):
@@ -268,6 +292,7 @@ def render_simulation_results(teams, difficulty_index, number_of_simulations):
     results = run_simulations(
         teams,
         number_of_simulations,
+        fixtures=fixtures,
         progress_callback=progress_bar.progress,
     )
     progress_bar.empty()
@@ -344,15 +369,19 @@ def main():
         st.stop()
 
     difficulty_index = calculate_tournament_difficulty_index(teams)
+    fixtures = load_cached_fixtures() if active_source == "Live API" else pd.DataFrame()
 
     render_data_readiness(raw_teams)
     render_team_table(teams)
     render_difficulty_index(difficulty_index)
     render_team_explanations(teams, difficulty_index)
     render_match_predictor(teams)
-    render_projected_pairings(teams)
+    render_projected_pairings(teams, fixtures, settings["number_of_simulations"])
     render_simulation_results(
-        teams, difficulty_index, settings["number_of_simulations"]
+        teams,
+        difficulty_index,
+        settings["number_of_simulations"],
+        fixtures=fixtures,
     )
 
 

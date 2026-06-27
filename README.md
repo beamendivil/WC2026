@@ -29,7 +29,9 @@ README.md
 - CSV upload or built-in sample data
 - Team table with calculated strength scores
 - Match winner prediction with logistic win probabilities
-- Projected upcoming knockout pairings with round-by-round win probabilities
+- FIFA Annex C Round-of-32 placement for all 495 third-place combinations
+- Pairing probabilities aggregated across hundreds or thousands of simulations
+- Completed cached fixture scores held fixed while unplayed matches are simulated
 - Group stage simulation for 12 groups of 4 teams
 - Advancement for top 2 teams in each group plus 8 best third-place teams
 - Knockout simulation from Round of 32 through the Final
@@ -145,7 +147,11 @@ API-Football fields like fixtures, standings, teams, match status, venue city, s
 
 ## Notes
 
-This is a functional first version, not a betting model. The sample data in `data/sample_teams.csv` is demo data, and the tournament bracket is simplified by seeding qualified teams by their simulated group-stage performance.
+This is a functional first version, not a betting model. The sample data in
+`data/sample_teams.csv` is demo data. Knockout placement follows FIFA's official
+2026 match slots and Annex C third-place allocation table, while the teams and
+match outcomes remain projections unless the live provider supplies completed
+fixtures.
 
 The Tournament Difficulty Index is a placeholder model feature, not a published reproduction of a specific paper. It is conceptually inspired by Victor Matheson's 2018 paper, *The Economics of the World Cup*, only for tournament logistics: host context, travel burden, rest days, climate differences, altitude differences, venue familiarity, and tournament complexity.
 
