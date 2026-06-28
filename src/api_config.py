@@ -24,6 +24,7 @@ LIVE_MATCH_STATS_CSV = DATA_DIR / "live_match_stats.csv"
 LIVE_ODDS_CSV = DATA_DIR / "live_odds.csv"
 LIVE_COUNTRIES_CSV = DATA_DIR / "live_countries.csv"
 API_CACHE_META = DATA_DIR / "api_cache_timestamp.txt"
+LATEST_PAIRING_PREDICTIONS_CSV = DATA_DIR / "latest_pairing_predictions.csv"
 
 
 def load_local_env():

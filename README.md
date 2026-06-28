@@ -1,8 +1,8 @@
 # World Cup 2026 Winner Predictor
 
-A beginner-friendly Streamlit app that predicts the winner of the 2026 FIFA World Cup by running Monte Carlo tournament simulations.
+A Streamlit app that predicts 2026 FIFA World Cup matches, likely Round-of-32 pairings, and tournament winners with a trained international-match model and Monte Carlo simulations.
 
-The app can load `data/sample_teams.csv` or accept an uploaded CSV. It calculates team strength from ranking, Elo, recent form, attack, defense, xG, player availability, context, market intelligence, live tournament position, and host advantage when those columns are available.
+The model trains on historical senior international results, applies recency and opponent-quality weighting, and blends its estimate with the official FIFA ranking points published on June 11, 2026. Confirmed tournament groups, completed results, eliminated teams, and confirmed knockout fixtures are held fixed instead of being resimulated.
 
 ## Project Structure
 
@@ -10,6 +10,7 @@ The app can load `data/sample_teams.csv` or accept an uploaded CSV. It calculate
 app.py
 src/data_loader.py
 src/features.py
+src/historical_model.py
 src/model.py
 src/simulator.py
 src/explanations.py
@@ -18,6 +19,8 @@ src/api_client.py
 src/update_data.py
 data/sample_teams.csv
 data/sample_matches.csv
+data/historical_results.csv
+data/fifa_rankings.csv
 README.md
 ```
 
@@ -26,9 +29,12 @@ README.md
 ## Features
 
 - Home page with project overview
-- CSV upload or built-in sample data
+- Automatic API-first loading with local CSV fallback
 - Team table with calculated strength scores
-- Match winner prediction with logistic win probabilities
+- Calibrated regulation win/draw/loss and knockout advancement probabilities
+- Separate regulation, extra-time, and penalty resolution
+- Historical Elo, opponent-adjusted recent form, attack, and defense features
+- Official FIFA ranking points blended into match probabilities
 - FIFA Annex C Round-of-32 placement for all 495 third-place combinations
 - Pairing probabilities aggregated across hundreds or thousands of simulations
 - Completed cached fixture scores held fixed while unplayed matches are simulated
@@ -37,7 +43,8 @@ README.md
 - Knockout simulation from Round of 32 through the Final
 - Champion probability table
 - Top 10 winner probability bar chart
-- Sidebar controls for simulation count and model weights
+- Model validation metrics displayed in the app
+- Sidebar control for simulation count
 - Optional advanced inputs for Elo, last-five form, xG, shots, player availability, context, betting markets, and live standings
 - Live data readiness table showing which tiers are present in the loaded CSV
 - Automatic host advantage for United States, Mexico, and Canada
@@ -47,7 +54,7 @@ README.md
 
 ## Data Format
 
-Your CSV must include these columns:
+The tournament snapshot must include these columns:
 
 ```text
 team,group,fifa_rank,recent_form_score,goals_for,goals_against,host_advantage
@@ -118,17 +125,11 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-Then keep `Data source` set to `Sample CSV` in the sidebar.
+The app reads local snapshots on ordinary page loads and does not contact the provider during Streamlit widget reruns. Use **Refresh API data** in the sidebar when you explicitly want to replace the cached provider data. If `API_FOOTBALL_KEY` is missing, or if the API data is not yet a complete 48-team tournament dataset, the app silently uses the bundled tournament snapshot.
 
-5. Run with live API data:
+Provider refreshes are cached locally for 12 hours. If a refresh fails, the app records the attempt and waits 30 minutes before another non-forced refresh. During that cooldown it uses cached CSV files when available, otherwise it falls back to sample data.
 
-```bash
-streamlit run app.py
-```
-
-Then choose `Live API` in the sidebar. If `API_FOOTBALL_KEY` is missing, or if the API data is not yet a complete 48-team tournament dataset, the app falls back to `data/sample_teams.csv` and shows a warning.
-
-To avoid excessive provider requests, live data is cached locally for 12 hours. If an API refresh fails, the app records the attempt and waits 30 minutes before trying again. During that cooldown it uses the cached CSV files when available, otherwise it falls back to sample data.
+The latest matchup probabilities are stored in `data/latest_pairing_predictions.csv` and appear immediately when the app opens. **Refresh matchup predictions** reruns the local Monte Carlo model and replaces that snapshot; it does not make an API request.
 
 Live API snapshots are saved locally:
 
@@ -143,15 +144,17 @@ data/live_countries.csv
 
 When the World Cup league endpoint returns no teams, the app uses API-Football `GET /countries` as a country-directory fallback. That fallback keeps the simulator's required 48-team shape and includes Scotland when the provider returns it, but it should be treated as candidate-country data rather than confirmed tournament qualification data.
 
-API-Football fields like fixtures, standings, teams, match status, venue city, statistics, and odds are real when the provider returns them. Model fields not directly provided by API-Football, such as FIFA rank, Elo, xG, xGA, travel distance, and rest days, use safe placeholders until a dedicated data source is connected.
+API-Football fields like fixtures, standings, teams, match status, venue city, statistics, and odds are real when the provider returns them. Official FIFA rank and points come from `data/fifa_rankings.csv`; learned Elo, form, attack, and defense come from `data/historical_results.csv`. Missing xG, injuries, lineups, travel, and odds remain neutral rather than being presented as real observations.
 
-## Notes
+## Model and Validation
 
-This is a functional first version, not a betting model. The sample data in
-`data/sample_teams.csv` is demo data. Knockout placement follows FIFA's official
-2026 match slots and Annex C third-place allocation table, while the teams and
-match outcomes remain projections unless the live provider supplies completed
-fixtures.
+The training pipeline uses matches from 2005 through 2022 for fitting, 2023-2024 for probability calibration, and 2025 onward as an out-of-time validation set. Its current validation accuracy is about 61.3% with multiclass log loss of about 0.846, compared with about 1.044 for the class-frequency baseline. The app reports these metrics from the fitted model.
+
+Each historical result updates a leakage-free Elo estimate and exponentially decayed form, attack, and defense state. Recent matches receive more weight, opponent quality adjusts the form and scoring signals, tournament matches carry more weight than friendlies, and single-match goal totals are capped to limit outlier influence. The draw model also uses the combined scoring environment, allowing it to distinguish low-scoring evenly matched teams from high-scoring evenly matched teams. Regulation probabilities are calibrated as home win, draw, and away win; knockout advancement then models extra time and penalties separately.
+
+This is a predictive model, not certainty or betting advice. Forecasts are limited by their inputs. Current injuries, expected lineups, xG, and market odds can improve it further once reliable feeds are connected.
+
+Knockout placement follows FIFA's official 2026 match slots and Annex C third-place allocation table. Confirmed fixtures and completed scores override simulations.
 
 The Tournament Difficulty Index is a placeholder model feature, not a published reproduction of a specific paper. It is conceptually inspired by Victor Matheson's 2018 paper, *The Economics of the World Cup*, only for tournament logistics: host context, travel burden, rest days, climate differences, altitude differences, venue familiarity, and tournament complexity.
 
@@ -169,19 +172,6 @@ The current row-level formula is:
 ```
 
 Higher values mean a harder projected path.
-
-## Recent Changes
-
-- Preserved the existing Streamlit app and sample CSV.
-- Refactored the app into a small `src/` package while keeping `streamlit run app.py` as the entry point.
-- Moved the sample team data to `data/sample_teams.csv`.
-- Added `data/sample_matches.csv` as a placeholder for future fixture and venue work.
-- Added safe defaults so partial CSVs do not break when optional model columns are missing.
-- Added automatic 2026 host advantage for USA, Mexico, and Canada.
-- Added travel, rest, and venue placeholders to the context score.
-- Added a Tournament Difficulty Index table and toughest-route chart.
-- Added average champion route difficulty to simulation results.
-- Added logistics-specific difficulty inputs: host country, venue country, venue city, climate difference, altitude difference, opponent strength, and venue familiarity.
 
 ## Model Roadmap
 

@@ -3,10 +3,12 @@ import unittest
 
 import pandas as pd
 
+from src.bracket import CONFIRMED_GROUP_POSITIONS, CONFIRMED_ROUND_OF_32
+from src.bracket import CONFIRMED_THIRD_PLACE_QUALIFIERS
 from src.bracket import build_round_of_32, load_third_place_mapping
 from src.data_loader import add_safe_defaults, load_sample_data
 from src.features import add_strength_scores
-from src.simulator import simulate_group_stage
+from src.simulator import predict_tournament_bracket, simulate_group_stage
 
 
 def sample_teams():
@@ -56,12 +58,12 @@ class OfficialBracketTests(unittest.TestCase):
     def test_completed_group_results_are_not_resimulated(self):
         fixtures = pd.DataFrame(
             [
-                ["United States", "Canada", "FT", 1, 0],
-                ["United States", "Mexico", "FT", 1, 0],
-                ["United States", "New Zealand", "FT", 1, 0],
-                ["Canada", "Mexico", "FT", 1, 0],
-                ["Canada", "New Zealand", "FT", 1, 0],
-                ["Mexico", "New Zealand", "FT", 1, 0],
+                ["Mexico", "South Africa", "FT", 1, 0],
+                ["Mexico", "South Korea", "FT", 1, 0],
+                ["Mexico", "Czechia", "FT", 1, 0],
+                ["South Africa", "South Korea", "FT", 1, 0],
+                ["South Africa", "Czechia", "FT", 1, 0],
+                ["South Korea", "Czechia", "FT", 1, 0],
             ],
             columns=[
                 "team_home",
@@ -78,8 +80,37 @@ class OfficialBracketTests(unittest.TestCase):
         )
 
         self.assertEqual(
-            group_a[["team", "points"]].values.tolist(),
-            [["United States", 9], ["Canada", 6]],
+            group_a[["team", "points"]].head(2).values.tolist(),
+            [["Mexico", 9], ["South Africa", 6]],
+        )
+
+    def test_confirmed_round_of_32_pairings_override_simulation(self):
+        pairings, _ = predict_tournament_bracket(sample_teams())
+        round_of_32 = pairings.loc[pairings["round"] == "Round of 32"].set_index(
+            "match"
+        )
+
+        for match_number, expected_teams in CONFIRMED_ROUND_OF_32.items():
+            actual_teams = (
+                round_of_32.loc[match_number, "team_a"],
+                round_of_32.loc[match_number, "team_b"],
+            )
+            self.assertEqual(actual_teams, expected_teams)
+
+    def test_confirmed_group_positions_condition_simulation(self):
+        qualified = simulate_group_stage(sample_teams())
+        positions = qualified.set_index(["group", "group_position"])["team"]
+
+        for group, confirmed_positions in CONFIRMED_GROUP_POSITIONS.items():
+            for position, team in confirmed_positions.items():
+                if position <= 2 or team in CONFIRMED_THIRD_PLACE_QUALIFIERS:
+                    self.assertEqual(positions.loc[(group, position)], team)
+
+        qualified_thirds = set(
+            qualified.loc[qualified["group_position"] == 3, "team"]
+        )
+        self.assertTrue(
+            CONFIRMED_THIRD_PLACE_QUALIFIERS.issubset(qualified_thirds)
         )
 
 

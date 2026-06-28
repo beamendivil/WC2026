@@ -3,8 +3,10 @@ import itertools
 import numpy as np
 import pandas as pd
 
+from src.bracket import CONFIRMED_GROUP_POSITIONS
+from src.bracket import CONFIRMED_ROUND_OF_32, CONFIRMED_THIRD_PLACE_QUALIFIERS
 from src.bracket import KNOCKOUT_PATHS, build_round_of_32
-from src.model import estimate_goals, predict_match_winner, win_probability
+from src.model import advancement_probability, estimate_goals, predict_match_winner
 
 
 KNOCKOUT_ROUND_NAMES = {
@@ -113,7 +115,7 @@ def simulate_group_stage(teams, fixtures=None):
     group_winners_and_runners_up = []
     third_place_teams = []
 
-    for _, group_df in teams.groupby("group", sort=True):
+    for group_name, group_df in teams.groupby("group", sort=True):
         team_records = group_df.to_dict("records")
         standings = {
             team["team"]: {
@@ -151,10 +153,38 @@ def simulate_group_stage(teams, fixtures=None):
             standing["goal_difference"] = (
                 standing["goals_for_sim"] - standing["goals_against_sim"]
             )
+            standing["eligible_for_knockout"] = not standing.get(
+                "eliminated", False
+            )
         ranked_group = pd.DataFrame(standings.values()).sort_values(
-            ["points", "goal_difference", "goals_for_sim", "strength_score"],
-            ascending=[False, False, False, False],
+            [
+                "eligible_for_knockout",
+                "points",
+                "goal_difference",
+                "goals_for_sim",
+                "strength_score",
+            ],
+            ascending=[False, False, False, False, False],
         ).reset_index(drop=True)
+        confirmed_positions = CONFIRMED_GROUP_POSITIONS.get(group_name, {})
+        if confirmed_positions:
+            confirmed_names = set(confirmed_positions.values())
+            unresolved = ranked_group.loc[
+                ~ranked_group["team"].isin(confirmed_names)
+            ].to_dict("records")
+            ordered_rows = []
+            for position in range(1, len(ranked_group) + 1):
+                confirmed_team = confirmed_positions.get(position)
+                if confirmed_team:
+                    ordered_rows.append(
+                        ranked_group.loc[
+                            ranked_group["team"] == confirmed_team
+                        ].iloc[0]
+                    )
+                else:
+                    ordered_rows.append(pd.Series(unresolved.pop(0)))
+            ranked_group = pd.DataFrame(ordered_rows).reset_index(drop=True)
+
         ranked_group["group_position"] = range(1, len(ranked_group) + 1)
         group_winners_and_runners_up.append(ranked_group.head(2))
         third_place_teams.append(ranked_group.iloc[[2]])
@@ -164,7 +194,20 @@ def simulate_group_stage(teams, fixtures=None):
         ["points", "goal_difference", "goals_for_sim", "strength_score"],
         ascending=[False, False, False, False],
     )
-    best_third_place_teams = third_place_rankings.head(8)
+    locked_third_place_teams = third_place_rankings.loc[
+        third_place_rankings["team"].isin(CONFIRMED_THIRD_PLACE_QUALIFIERS)
+    ]
+    remaining_third_place_teams = third_place_rankings.loc[
+        ~third_place_rankings["team"].isin(CONFIRMED_THIRD_PLACE_QUALIFIERS)
+        & ~third_place_rankings["eliminated"]
+    ]
+    best_third_place_teams = pd.concat(
+        [
+            locked_third_place_teams,
+            remaining_third_place_teams.head(8 - len(locked_third_place_teams)),
+        ],
+        ignore_index=True,
+    )
 
     return pd.concat([automatic_qualifiers, best_third_place_teams], ignore_index=True)
 
@@ -177,9 +220,7 @@ def simulate_knockout_round(teams, route_difficulty, round_name=None):
     for index in range(0, len(teams), 2):
         team_a = teams.iloc[index]
         team_b = teams.iloc[index + 1]
-        probability_a = win_probability(
-            team_a["strength_score"], team_b["strength_score"]
-        )
+        probability_a = advancement_probability(team_a, team_b)
         winner_name, _ = predict_match_winner(team_a, team_b, allow_draw=False)
         route_difficulty[team_a["team"]] += team_b["strength_score"]
         route_difficulty[team_b["team"]] += team_a["strength_score"]
@@ -219,18 +260,17 @@ def seed_knockout_teams(qualified_teams):
     return pd.DataFrame(bracket_order).reset_index(drop=True)
 
 
-def simulate_official_bracket(qualified_teams):
+def simulate_official_bracket(qualified_teams, all_teams=None):
     """Simulate FIFA's fixed knockout match-number progression."""
+    team_pool = all_teams if all_teams is not None else qualified_teams
     route_difficulty = {
-        team: 0 for team in qualified_teams["team"]
+        team: 0 for team in team_pool["team"]
     }
     winners_by_match = {}
     pairings = []
 
     def play_match(round_name, match_number, team_a, team_b):
-        probability_a = win_probability(
-            team_a["strength_score"], team_b["strength_score"]
-        )
+        probability_a = advancement_probability(team_a, team_b)
         winner_name, _ = predict_match_winner(team_a, team_b, allow_draw=False)
         winner = team_a if winner_name == team_a["team"] else team_b
         route_difficulty[team_a["team"]] += team_b["strength_score"]
@@ -248,7 +288,20 @@ def simulate_official_bracket(qualified_teams):
             }
         )
 
-    for match_number, team_a, team_b in build_round_of_32(qualified_teams):
+    round_of_32 = {
+        match_number: (team_a, team_b)
+        for match_number, team_a, team_b in build_round_of_32(qualified_teams)
+    }
+    teams_by_name = {
+        row["team"]: row for _, row in team_pool.iterrows()
+    }
+    for match_number, (team_a_name, team_b_name) in CONFIRMED_ROUND_OF_32.items():
+        round_of_32[match_number] = (
+            teams_by_name[team_a_name],
+            teams_by_name[team_b_name],
+        )
+
+    for match_number, (team_a, team_b) in sorted(round_of_32.items()):
         play_match("Round of 32", match_number, team_a, team_b)
 
     for round_name, matches in KNOCKOUT_PATHS.items():
@@ -268,7 +321,7 @@ def simulate_tournament(teams, fixtures=None):
     """Run one full tournament and return champion details."""
     qualified_teams = simulate_group_stage(teams, fixtures)
     _, champion, champion_route_difficulty = simulate_official_bracket(
-        qualified_teams
+        qualified_teams, teams
     )
     return {
         "champion": champion,
@@ -279,7 +332,7 @@ def simulate_tournament(teams, fixtures=None):
 def predict_tournament_bracket(teams, fixtures=None):
     """Project one tournament and retain every knockout pairing."""
     qualified_teams = simulate_group_stage(teams, fixtures)
-    pairings, champion, _ = simulate_official_bracket(qualified_teams)
+    pairings, champion, _ = simulate_official_bracket(qualified_teams, teams)
     return pairings, champion
 
 
@@ -287,8 +340,13 @@ def run_simulations(
     teams, number_of_simulations, fixtures=None, progress_callback=None
 ):
     """Run many tournaments and convert champion counts into probabilities."""
-    champion_counts = {team: 0 for team in teams["team"]}
-    route_difficulty_totals = {team: 0 for team in teams["team"]}
+    eligible_teams = (
+        teams.loc[~teams["eliminated"]]
+        if "eliminated" in teams.columns
+        else teams
+    )
+    champion_counts = {team: 0 for team in eligible_teams["team"]}
+    route_difficulty_totals = {team: 0 for team in eligible_teams["team"]}
 
     for simulation_number in range(number_of_simulations):
         simulation_result = simulate_tournament(teams, fixtures)

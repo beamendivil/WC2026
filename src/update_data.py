@@ -463,6 +463,16 @@ def load_live_model_data(force=False):
     return live, message
 
 
+def load_cached_model_data():
+    """Read the latest API team snapshot without making a provider request."""
+    if not live_cache_exists():
+        return pd.DataFrame(), "No cached API snapshot."
+    try:
+        return pd.read_csv(LIVE_TEAMS_CSV), "Cached API snapshot"
+    except (EmptyDataError, OSError):
+        return pd.DataFrame(), "Cached API snapshot is unavailable."
+
+
 def load_cached_fixtures():
     """Load cached tournament fixtures without triggering another API request."""
     if not LIVE_FIXTURES_CSV.exists() or LIVE_FIXTURES_CSV.stat().st_size <= 1:

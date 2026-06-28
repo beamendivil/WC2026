@@ -1,8 +1,10 @@
 import numpy as np
 import pandas as pd
 
+from src.bracket import CONFIRMED_GROUP_POSITIONS
 from src.data_loader import HOST_TEAMS, REQUIRED_COLUMNS, REQUIRED_DEFAULTS
 from src.data_loader import prepare_optional_columns
+from src.historical_model import enrich_with_historical_features
 
 
 def infer_host_advantage(team_name):
@@ -106,6 +108,7 @@ def add_strength_scores(
     """Calculate the model inputs and total strength score for each team."""
     teams = df.copy()
     teams = prepare_optional_columns(teams)
+    teams = enrich_with_historical_features(teams)
     teams["fifa_rank"] = pd.to_numeric(teams["fifa_rank"], errors="coerce")
     teams["recent_form_score"] = pd.to_numeric(
         teams["recent_form_score"], errors="coerce"
@@ -126,17 +129,20 @@ def add_strength_scores(
     # Lower FIFA rankings are better, so rank 1 gets the highest score.
     teams["rank_score"] = ((max_rank - teams["fifa_rank"] + 1) / max_rank) * 10
     teams["rank_score"] = teams["rank_score"] * ranking_weight
-    teams["elo_score"] = normalize_series(teams["elo_rating"]) * elo_weight
-    teams["attack_score"] = safe_ratio_score(teams["goals_for"])
+    teams["elo_rating"] = teams["historical_elo"]
+    teams["elo_score"] = normalize_series(teams["historical_elo"]) * elo_weight
+    teams["attack_score"] = normalize_series(teams["historical_attack"])
 
     # Fewer goals conceded should produce a higher defense score.
     teams["defense_score"] = normalize_series(
-        teams["goals_against"], higher_is_better=False
+        teams["historical_defense"], higher_is_better=False
     )
     teams["host_advantage_component"] = teams["host_advantage"] * host_weight
 
     parsed_form_score = teams["last_five_form"].apply(parse_last_five_form)
-    teams["derived_form_score"] = parsed_form_score.fillna(teams["recent_form_score"])
+    teams["derived_form_score"] = parsed_form_score.fillna(
+        teams["historical_form"]
+    )
     teams["recent_form_component"] = teams["derived_form_score"] * form_weight
 
     teams["xg_difference"] = teams["xg_for"] - teams["xg_against"]
@@ -172,6 +178,17 @@ def add_strength_scores(
         + teams["current_goal_difference"] * 0.35
         + teams["current_goals_for"] * 0.15
     )
+    confirmed_positions = {
+        team: position
+        for positions in CONFIRMED_GROUP_POSITIONS.values()
+        for position, team in positions.items()
+    }
+    confirmed_position_bonus = {1: 1.5, 2: 0.75, 3: 0.25}
+    teams["confirmed_group_finish_component"] = teams["team"].map(
+        lambda team: confirmed_position_bonus.get(
+            confirmed_positions.get(team), 0
+        )
+    )
 
     teams["strength_score"] = (
         teams["rank_score"]
@@ -186,6 +203,7 @@ def add_strength_scores(
         + teams["context_component"]
         + teams["market_component"]
         + teams["tournament_position_component"]
+        + teams["confirmed_group_finish_component"]
     )
     return teams
 

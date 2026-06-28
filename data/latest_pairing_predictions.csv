@@ -1,0 +1,393 @@
+round,team_a,team_b,pairing_probability,simulations,simulation_runs,generated_at
+Final,Argentina,Spain,16.400000000000002,164,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,France,15.4,154,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Spain,5.8999999999999995,59,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,France,4.5,45,1000,2026-06-27T18:44:06-08:00
+Final,England,Spain,4.3999999999999995,44,1000,2026-06-27T18:44:06-08:00
+Final,England,France,4.0,40,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Portugal,3.9,39,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Netherlands,3.5999999999999996,36,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Belgium,3.2,32,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Germany,3.2,32,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Morocco,2.5,25,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Spain,2.3,23,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,France,2.1,21,1000,2026-06-27T18:44:06-08:00
+Final,Mexico,Spain,1.5,15,1000,2026-06-27T18:44:06-08:00
+Final,France,Mexico,1.4000000000000001,14,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,United States,1.2,12,1000,2026-06-27T18:44:06-08:00
+Final,England,Portugal,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Final,Japan,Spain,1.0,10,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,England,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Final,France,Japan,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Final,England,Netherlands,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,Brazil,0.8,8,1000,2026-06-27T18:44:06-08:00
+Final,England,Morocco,0.8,8,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Canada,0.8,8,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Morocco,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Norway,Spain,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Spain,Switzerland,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Netherlands,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Croatia,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Portugal,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Final,Australia,Spain,0.6,6,1000,2026-06-27T18:44:06-08:00
+Final,Mexico,Netherlands,0.6,6,1000,2026-06-27T18:44:06-08:00
+Final,France,Switzerland,0.5,5,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,Colombia,0.5,5,1000,2026-06-27T18:44:06-08:00
+Final,France,Norway,0.5,5,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Portugal,0.4,4,1000,2026-06-27T18:44:06-08:00
+Final,Mexico,Portugal,0.4,4,1000,2026-06-27T18:44:06-08:00
+Final,Ecuador,France,0.4,4,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Germany,0.4,4,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Croatia,0.4,4,1000,2026-06-27T18:44:06-08:00
+Final,Mexico,Morocco,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Netherlands,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Paraguay,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Germany,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Morocco,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Ecuador,Spain,0.3,3,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,United States,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Japan,Netherlands,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Paraguay,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Canada,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Cote d'Ivoire,Spain,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Egypt,Portugal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Uruguay,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,France,Uruguay,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,Ecuador,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,South Korea,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Portugal,Senegal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,Japan,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,United States,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Mexico,United States,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Netherlands,Switzerland,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Norway,Portugal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,Japan,Portugal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Final,South Korea,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Croatia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Egypt,France,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Senegal,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,South Korea,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Canada,Mexico,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,England,United States,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,England,Germany,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Ecuador,United States,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,France,Ghana,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Ecuador,Netherlands,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Germany,Mexico,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Australia,Netherlands,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Egypt,Morocco,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Canada,England,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Australia,France,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Norway,Paraguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Spain,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Japan,Morocco,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Germany,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Colombia,Paraguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Algeria,Brazil,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Argentina,Austria,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Canada,Colombia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Senegal,Spain,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Belgium,Mexico,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,South Korea,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Brazil,Ecuador,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Austria,England,0.1,1,1000,2026-06-27T18:44:06-08:00
+Final,Germany,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Colombia,50.7,507,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,England,31.0,310,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Belgium,Spain,30.5,305,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,France,Netherlands,26.900000000000002,269,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,France,Morocco,23.1,231,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Spain,United States,21.3,213,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Switzerland,18.099999999999998,181,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Canada,France,17.1,171,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,Mexico,16.1,161,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Belgium,Portugal,11.899999999999999,119,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,England,Japan,11.600000000000001,116,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Ecuador,11.3,113,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Germany,Netherlands,10.0,100,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,England,Norway,9.4,94,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Germany,Morocco,8.4,84,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Portugal,United States,7.8,78,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,South Korea,Spain,6.5,65,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Japan,Mexico,6.0,60,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cote d'Ivoire,England,5.6000000000000005,56,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Mexico,Norway,5.4,54,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Senegal,4.6,46,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Colombia,4.3999999999999995,44,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Canada,Germany,4.2,42,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Belgium,Croatia,4.2,42,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Croatia,United States,3.2,32,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Netherlands,Paraguay,2.8000000000000003,28,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Spain,Uruguay,2.4,24,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Portugal,South Korea,2.3,23,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Switzerland,2.3,23,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cote d'Ivoire,Mexico,2.3,23,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Portugal,Uruguay,2.1999999999999997,22,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,Ecuador,2.0,20,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Morocco,Paraguay,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,Uruguay,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,Congo DR,1.7000000000000002,17,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,France,South Africa,1.7000000000000002,17,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Colombia,Egypt,1.6,16,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Ecuador,1.5,15,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Bosnia and Herzegovina,Spain,1.5,15,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Ghana,1.3,13,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Ecuador,Japan,1.3,13,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Czechia,Spain,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Canada,Paraguay,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Japan,Uruguay,1.0,10,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Morocco,Sweden,1.0,10,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Ecuador,Norway,1.0,10,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Egypt,Switzerland,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Norway,Uruguay,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Brazil,Scotland,0.8,8,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Congo DR,Japan,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Germany,South Africa,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Netherlands,Sweden,0.6,6,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Croatia,South Korea,0.6,6,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Bosnia and Herzegovina,Portugal,0.6,6,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Algeria,Argentina,0.6,6,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Austria,Belgium,0.6,6,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Austria,0.5,5,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Austria,United States,0.5,5,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Algeria,Belgium,0.5,5,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Canada,Sweden,0.4,4,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cote d'Ivoire,Ecuador,0.4,4,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Croatia,Uruguay,0.4,4,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cabo Verde,Colombia,0.4,4,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Ecuador,Egypt,0.4,4,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Qatar,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Japan,Scotland,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Argentina,Iraq,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Senegal,Spain,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cote d'Ivoire,Uruguay,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Congo DR,Cote d'Ivoire,0.3,3,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Croatia,Senegal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Senegal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Paraguay,South Africa,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cabo Verde,Switzerland,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Croatia,Czechia,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Saudi Arabia,Spain,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Algeria,United States,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Czechia,Portugal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Egypt,Senegal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Portugal,Saudi Arabia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Algeria,Czechia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Bosnia and Herzegovina,Croatia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Austria,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Australia,Ghana,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Cote d'Ivoire,Scotland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Ecuador,Portugal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Belgium,Jordan,0.1,1,1000,2026-06-27T18:44:06-08:00
+Quarterfinals,Portugal,Senegal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,France,Germany,64.4,644,1000,2026-06-27T18:44:06-08:00
+Round of 16,Portugal,Spain,61.6,616,1000,2026-06-27T18:44:06-08:00
+Round of 16,Argentina,Australia,60.3,603,1000,2026-06-27T18:44:06-08:00
+Round of 16,England,Mexico,56.49999999999999,565,1000,2026-06-27T18:44:06-08:00
+Round of 16,Belgium,United States,55.1,551,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Switzerland,45.5,455,1000,2026-06-27T18:44:06-08:00
+Round of 16,Brazil,Norway,40.699999999999996,407,1000,2026-06-27T18:44:06-08:00
+Round of 16,Canada,Netherlands,39.900000000000006,399,1000,2026-06-27T18:44:06-08:00
+Round of 16,Argentina,Egypt,37.1,371,1000,2026-06-27T18:44:06-08:00
+Round of 16,Canada,Morocco,35.9,359,1000,2026-06-27T18:44:06-08:00
+Round of 16,Croatia,Spain,28.999999999999996,290,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Ecuador,28.4,284,1000,2026-06-27T18:44:06-08:00
+Round of 16,France,Paraguay,27.800000000000004,278,1000,2026-06-27T18:44:06-08:00
+Round of 16,Brazil,Cote d'Ivoire,26.3,263,1000,2026-06-27T18:44:06-08:00
+Round of 16,Japan,Norway,19.1,191,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ecuador,England,15.9,159,1000,2026-06-27T18:44:06-08:00
+Round of 16,Cote d'Ivoire,Japan,13.900000000000002,139,1000,2026-06-27T18:44:06-08:00
+Round of 16,South Korea,United States,13.600000000000001,136,1000,2026-06-27T18:44:06-08:00
+Round of 16,Belgium,Bosnia and Herzegovina,13.600000000000001,136,1000,2026-06-27T18:44:06-08:00
+Round of 16,Netherlands,South Africa,13.3,133,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Senegal,13.100000000000001,131,1000,2026-06-27T18:44:06-08:00
+Round of 16,Morocco,South Africa,10.9,109,1000,2026-06-27T18:44:06-08:00
+Round of 16,England,Uruguay,10.5,105,1000,2026-06-27T18:44:06-08:00
+Round of 16,Congo DR,Mexico,9.3,93,1000,2026-06-27T18:44:06-08:00
+Round of 16,United States,Uruguay,6.4,64,1000,2026-06-27T18:44:06-08:00
+Round of 16,Germany,Sweden,5.6000000000000005,56,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ghana,Switzerland,4.3999999999999995,44,1000,2026-06-27T18:44:06-08:00
+Round of 16,England,Scotland,3.8,38,1000,2026-06-27T18:44:06-08:00
+Round of 16,Austria,Portugal,3.5000000000000004,35,1000,2026-06-27T18:44:06-08:00
+Round of 16,Czechia,United States,3.4000000000000004,34,1000,2026-06-27T18:44:06-08:00
+Round of 16,Bosnia and Herzegovina,South Korea,2.7,27,1000,2026-06-27T18:44:06-08:00
+Round of 16,Algeria,Portugal,2.7,27,1000,2026-06-27T18:44:06-08:00
+Round of 16,Paraguay,Sweden,2.1999999999999997,22,1000,2026-06-27T18:44:06-08:00
+Round of 16,Austria,Croatia,2.0,20,1000,2026-06-27T18:44:06-08:00
+Round of 16,Bosnia and Herzegovina,Uruguay,2.0,20,1000,2026-06-27T18:44:06-08:00
+Round of 16,Senegal,United States,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ecuador,Ghana,1.7000000000000002,17,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Qatar,1.7000000000000002,17,1000,2026-06-27T18:44:06-08:00
+Round of 16,Congo DR,Ecuador,1.5,15,1000,2026-06-27T18:44:06-08:00
+Round of 16,Australia,Cabo Verde,1.4000000000000001,14,1000,2026-06-27T18:44:06-08:00
+Round of 16,Austria,Colombia,1.3,13,1000,2026-06-27T18:44:06-08:00
+Round of 16,Algeria,Colombia,1.3,13,1000,2026-06-27T18:44:06-08:00
+Round of 16,Cabo Verde,Egypt,1.2,12,1000,2026-06-27T18:44:06-08:00
+Round of 16,Congo DR,Uruguay,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ghana,Senegal,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Round of 16,England,Saudi Arabia,0.8,8,1000,2026-06-27T18:44:06-08:00
+Round of 16,Algeria,Croatia,0.8,8,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Iraq,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Round of 16,Bosnia and Herzegovina,Czechia,0.5,5,1000,2026-06-27T18:44:06-08:00
+Round of 16,Saudi Arabia,United States,0.4,4,1000,2026-06-27T18:44:06-08:00
+Round of 16,Jordan,Portugal,0.3,3,1000,2026-06-27T18:44:06-08:00
+Round of 16,Colombia,Jordan,0.3,3,1000,2026-06-27T18:44:06-08:00
+Round of 16,Congo DR,Scotland,0.3,3,1000,2026-06-27T18:44:06-08:00
+Round of 16,Algeria,Ghana,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 16,Bosnia and Herzegovina,Senegal,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 16,Bosnia and Herzegovina,Saudi Arabia,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 16,England,Haiti,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 16,Austria,Ghana,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ghana,Jordan,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ghana,Qatar,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,Croatia,Jordan,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,Congo DR,Saudi Arabia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ghana,Iraq,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 16,Ecuador,United States,0.1,1,1000,2026-06-27T18:44:06-08:00
+Round of 32,Canada,South Africa,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Germany,Paraguay,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Morocco,Netherlands,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Brazil,Japan,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,France,Sweden,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Cote d'Ivoire,Norway,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Congo DR,England,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Bosnia and Herzegovina,United States,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Croatia,Portugal,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Argentina,Cabo Verde,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Colombia,Ghana,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Australia,Egypt,100.0,1000,1000,2026-06-27T18:44:06-08:00
+Round of 32,Ecuador,Switzerland,50.5,505,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,South Korea,49.4,494,1000,2026-06-27T18:44:06-08:00
+Round of 32,Austria,Spain,45.300000000000004,453,1000,2026-06-27T18:44:06-08:00
+Round of 32,Ecuador,Mexico,44.3,443,1000,2026-06-27T18:44:06-08:00
+Round of 32,Algeria,Spain,41.5,415,1000,2026-06-27T18:44:06-08:00
+Round of 32,Mexico,Uruguay,31.1,311,1000,2026-06-27T18:44:06-08:00
+Round of 32,Senegal,Switzerland,30.8,308,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Uruguay,22.3,223,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Czechia,18.7,187,1000,2026-06-27T18:44:06-08:00
+Round of 32,Mexico,Scotland,17.0,170,1000,2026-06-27T18:44:06-08:00
+Round of 32,Jordan,Spain,13.200000000000001,132,1000,2026-06-27T18:44:06-08:00
+Round of 32,Ecuador,Qatar,5.0,50,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Senegal,4.3999999999999995,44,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Saudi Arabia,4.3999999999999995,44,1000,2026-06-27T18:44:06-08:00
+Round of 32,Haiti,Mexico,3.9,39,1000,2026-06-27T18:44:06-08:00
+Round of 32,Mexico,Saudi Arabia,3.6999999999999997,37,1000,2026-06-27T18:44:06-08:00
+Round of 32,Iraq,Switzerland,3.5000000000000004,35,1000,2026-06-27T18:44:06-08:00
+Round of 32,Austria,Switzerland,3.2,32,1000,2026-06-27T18:44:06-08:00
+Round of 32,Algeria,Switzerland,2.9000000000000004,29,1000,2026-06-27T18:44:06-08:00
+Round of 32,Qatar,Senegal,2.4,24,1000,2026-06-27T18:44:06-08:00
+Round of 32,Jordan,Switzerland,0.7000000000000001,7,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Iraq,0.6,6,1000,2026-06-27T18:44:06-08:00
+Round of 32,Algeria,Qatar,0.4,4,1000,2026-06-27T18:44:06-08:00
+Round of 32,Iraq,Qatar,0.3,3,1000,2026-06-27T18:44:06-08:00
+Round of 32,Austria,Qatar,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 32,Belgium,Ecuador,0.2,2,1000,2026-06-27T18:44:06-08:00
+Round of 32,Jordan,Qatar,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,Spain,25.5,255,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Brazil,23.1,231,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,England,22.7,227,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Mexico,9.3,93,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,Portugal,9.1,91,1000,2026-06-27T18:44:06-08:00
+Semifinals,Netherlands,Spain,9.0,90,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,France,8.6,86,1000,2026-06-27T18:44:06-08:00
+Semifinals,Germany,Spain,6.9,69,1000,2026-06-27T18:44:06-08:00
+Semifinals,Morocco,Spain,6.800000000000001,68,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Japan,6.2,62,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,England,5.1,51,1000,2026-06-27T18:44:06-08:00
+Semifinals,Brazil,Colombia,5.1,51,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Norway,4.2,42,1000,2026-06-27T18:44:06-08:00
+Semifinals,Canada,Spain,3.0,30,1000,2026-06-27T18:44:06-08:00
+Semifinals,Netherlands,Portugal,2.8000000000000003,28,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,United States,2.8000000000000003,28,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,Netherlands,2.4,24,1000,2026-06-27T18:44:06-08:00
+Semifinals,Croatia,France,1.9,19,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Mexico,1.9,19,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,Germany,1.9,19,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Cote d'Ivoire,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,Morocco,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Semifinals,Morocco,Portugal,1.7999999999999998,18,1000,2026-06-27T18:44:06-08:00
+Semifinals,Germany,Portugal,1.7000000000000002,17,1000,2026-06-27T18:44:06-08:00
+Semifinals,Brazil,Switzerland,1.6,16,1000,2026-06-27T18:44:06-08:00
+Semifinals,England,Switzerland,1.6,16,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Japan,1.5,15,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,South Korea,1.5,15,1000,2026-06-27T18:44:06-08:00
+Semifinals,Paraguay,Spain,1.3,13,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,England,1.3,13,1000,2026-06-27T18:44:06-08:00
+Semifinals,Croatia,Netherlands,1.2,12,1000,2026-06-27T18:44:06-08:00
+Semifinals,Germany,United States,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Brazil,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Semifinals,Brazil,Ecuador,1.0999999999999999,11,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,England,1.0,10,1000,2026-06-27T18:44:06-08:00
+Semifinals,Morocco,United States,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,Canada,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Norway,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Ecuador,0.8999999999999999,9,1000,2026-06-27T18:44:06-08:00
+Semifinals,Japan,Switzerland,0.8,8,1000,2026-06-27T18:44:06-08:00
+Semifinals,Mexico,Switzerland,0.8,8,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,Uruguay,0.8,8,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Uruguay,0.8,8,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Japan,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Mexico,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Netherlands,United States,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Canada,Portugal,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Brazil,Senegal,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Mexico,0.6,6,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Ecuador,0.5,5,1000,2026-06-27T18:44:06-08:00
+Semifinals,Belgium,Paraguay,0.5,5,1000,2026-06-27T18:44:06-08:00
+Semifinals,Netherlands,South Korea,0.4,4,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Cote d'Ivoire,0.4,4,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Scotland,0.4,4,1000,2026-06-27T18:44:06-08:00
+Semifinals,Spain,Sweden,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Paraguay,Portugal,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Brazil,Egypt,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Algeria,Netherlands,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Uruguay,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Morocco,South Korea,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,England,Senegal,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Croatia,Morocco,0.3,3,1000,2026-06-27T18:44:06-08:00
+Semifinals,Paraguay,South Korea,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Czechia,France,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Japan,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Austria,Netherlands,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Croatia,Paraguay,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Egypt,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Croatia,Germany,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Netherlands,Uruguay,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Egypt,Norway,0.2,2,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Cote d'Ivoire,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,France,Senegal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Colombia,Scotland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Paraguay,United States,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Canada,Croatia,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Egypt,Mexico,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Norway,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Germany,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Austria,England,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Argentina,Congo DR,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,England,Ghana,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Senegal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Canada,United States,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Germany,South Korea,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Morocco,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Czechia,Netherlands,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Ecuador,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Egypt,England,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Mexico,Senegal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Austria,France,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Cote d'Ivoire,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Norway,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Egypt,Japan,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Portugal,Sweden,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Algeria,Paraguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Austria,Morocco,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Australia,Norway,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Switzerland,Uruguay,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Japan,Senegal,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Switzerland,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Ecuador,Morocco,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Austria,Germany,0.1,1,1000,2026-06-27T18:44:06-08:00
+Semifinals,Algeria,France,0.1,1,1000,2026-06-27T18:44:06-08:00

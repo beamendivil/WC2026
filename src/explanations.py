@@ -5,7 +5,14 @@ MODEL_COLUMNS = [
     "team",
     "group",
     "fifa_rank",
+    "fifa_points",
+    "ranking_date",
     "elo_rating",
+    "historical_elo",
+    "historical_form",
+    "historical_attack",
+    "historical_defense",
+    "historical_matches",
     "last_five_form",
     "derived_form_score",
     "goals_for",
@@ -32,6 +39,7 @@ MODEL_COLUMNS = [
     "player_component",
     "context_component",
     "market_component",
+    "confirmed_group_finish_component",
     "tournament_position_component",
     "strength_score",
 ]
@@ -69,8 +77,15 @@ MATHESON_NOTE = (
 def build_data_readiness_table(raw_teams):
     """Show which data tiers are already present in the current dataset."""
     tier_columns = {
-        "Tier 1: rankings, results, standings, bracket": [
+        "Tier 1: rankings, historical results, standings, bracket": [
             "fifa_rank",
+            "fifa_points",
+            "ranking_date",
+            "historical_elo",
+            "historical_form",
+            "historical_attack",
+            "historical_defense",
+            "historical_matches",
             "goals_for",
             "goals_against",
             "current_points",

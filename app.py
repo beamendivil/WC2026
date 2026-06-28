@@ -1,102 +1,168 @@
+from datetime import datetime
+
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
+from src.api_config import LATEST_PAIRING_PREDICTIONS_CSV
 from src.data_loader import add_safe_defaults, load_sample_data, validate_team_data
-from src.explanations import DIFFICULTY_COLUMNS, DIFFICULTY_EXPLANATION
-from src.explanations import MATHESON_NOTE, MODEL_COLUMNS
-from src.explanations import build_data_readiness_table, build_team_explanations
-from src.features import add_strength_scores, calculate_tournament_difficulty_index
-from src.model import win_probability
+from src.explanations import find_biggest_factor
+from src.features import add_strength_scores
+from src.historical_model import load_historical_model
+from src.model import advancement_probability, match_probabilities
+from src.api_config import has_api_key
 from src.simulator import (
-    predict_tournament_bracket,
     run_pairing_simulations,
     run_simulations,
 )
-from src.update_data import load_cached_fixtures, load_live_model_data
+from src.update_data import load_cached_fixtures, load_cached_model_data
+from src.update_data import load_live_model_data
 
 
-@st.cache_data
 def cached_sample_data():
-    """Cache the sample CSV for Streamlit reruns."""
+    """Load the small fallback CSV so file updates are reflected immediately."""
     return load_sample_data()
+
+
+def render_soccer_loading_icon():
+    """Replace Streamlit's activity-cycle loader with a soccer animation."""
+    st.markdown(
+        """
+        <style>
+        [data-testid="stStatusWidget"] > div {
+            visibility: hidden;
+        }
+        [data-testid="stStatusWidget"]::after {
+            animation: soccer-roll 0.9s ease-in-out infinite;
+            color: currentColor;
+            content: "sports_soccer";
+            display: inline-block;
+            font-family: "Material Symbols Rounded", "Material Symbols Outlined";
+            font-size: 1.5rem;
+            font-variation-settings:
+                "FILL" 0,
+                "wght" 500,
+                "GRAD" 0,
+                "opsz" 24;
+            line-height: 1;
+            transform-origin: center;
+            visibility: visible;
+            white-space: nowrap;
+        }
+        @keyframes soccer-roll {
+            0% {
+                transform: translateX(-4px) rotate(0deg);
+            }
+            50% {
+                transform: translateX(4px) rotate(180deg);
+            }
+            100% {
+                transform: translateX(-4px) rotate(360deg);
+            }
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def render_sidebar():
     """Create sidebar controls and return selected settings."""
-    st.sidebar.header("Data")
-    data_source = st.sidebar.radio("Data source", ["Sample CSV", "Live API"])
-
     st.sidebar.header("Simulation Controls")
     number_of_simulations = st.sidebar.slider(
         "Number of simulations", min_value=100, max_value=5000, value=1000, step=100
     )
-    ranking_weight = st.sidebar.slider(
-        "Ranking weight", min_value=0.0, max_value=3.0, value=1.0, step=0.1
-    )
-    form_weight = st.sidebar.slider(
-        "Recent form weight", min_value=0.0, max_value=3.0, value=1.0, step=0.1
-    )
-    host_weight = st.sidebar.slider(
-        "Host advantage weight", min_value=0.0, max_value=10.0, value=2.0, step=0.5
-    )
-
-    st.sidebar.header("Advanced Model Weights")
-    elo_weight = st.sidebar.slider(
-        "Elo weight", min_value=0.0, max_value=3.0, value=1.0, step=0.1
-    )
-    xg_weight = st.sidebar.slider(
-        "xG and shots weight", min_value=0.0, max_value=3.0, value=1.0, step=0.1
-    )
-    player_weight = st.sidebar.slider(
-        "Player availability weight", min_value=0.0, max_value=3.0, value=0.5, step=0.1
-    )
-    context_weight = st.sidebar.slider(
-        "Context weight", min_value=0.0, max_value=3.0, value=0.5, step=0.1
-    )
-    market_weight = st.sidebar.slider(
-        "Market intelligence weight", min_value=0.0, max_value=3.0, value=0.5, step=0.1
+    refresh_api = st.sidebar.button(
+        "Refresh API data",
+        icon=":material/sync:",
+        help="Contact the provider and replace the local API snapshot.",
     )
 
     return {
-        "data_source": data_source,
         "number_of_simulations": number_of_simulations,
-        "ranking_weight": ranking_weight,
-        "form_weight": form_weight,
-        "host_weight": host_weight,
-        "elo_weight": elo_weight,
-        "xg_weight": xg_weight,
-        "player_weight": player_weight,
-        "context_weight": context_weight,
-        "market_weight": market_weight,
+        "refresh_api": refresh_api,
+        "ranking_weight": 1.0,
+        "form_weight": 1.0,
+        "host_weight": 2.0,
+        "elo_weight": 1.0,
+        "xg_weight": 1.0,
+        "player_weight": 0.5,
+        "context_weight": 0.5,
+        "market_weight": 0.5,
     }
 
 
-def load_selected_data(settings, uploaded_file):
-    """Load sample/uploaded data or API-Football data with safe fallback."""
-    if uploaded_file:
-        return pd.read_csv(uploaded_file), "Uploaded CSV"
+def load_selected_data(refresh_api=False):
+    """Load API data automatically, falling back to the sample CSV."""
+    sample_teams = cached_sample_data()
+    if not has_api_key():
+        return sample_teams, "Sample CSV fallback", False
 
-    if settings["data_source"] == "Live API":
-        live_teams, message = load_live_model_data()
-        live_teams = add_safe_defaults(live_teams) if not live_teams.empty else live_teams
-        if live_teams.empty:
-            st.warning(f"{message} Falling back to sample CSV data.")
-            return cached_sample_data(), "Sample CSV fallback"
+    live_teams, _ = (
+        load_live_model_data(force=True)
+        if refresh_api
+        else load_cached_model_data()
+    )
+    if live_teams.empty:
+        return sample_teams, "Sample CSV fallback", False
 
-        live_errors = validate_team_data(live_teams)
-        if live_errors:
-            st.warning(
-                "Live API data was fetched, but it is not yet a complete "
-                "48-team tournament dataset. Falling back to sample CSV data."
-            )
-            st.caption("Live data issue: " + " ".join(live_errors))
-            return cached_sample_data(), "Sample CSV fallback"
+    live_teams = add_safe_defaults(live_teams)
+    live_roster = set(live_teams["team"].astype(str))
+    official_roster = set(sample_teams["team"].astype(str))
+    if validate_team_data(live_teams) or live_roster != official_roster:
+        return sample_teams, "API + Sample CSV fallback", True
 
-        st.success(message)
-        return live_teams, "Live API"
+    return live_teams, "Live API with sample defaults", True
 
-    return cached_sample_data(), "Sample CSV"
+
+def render_api_status(api_connected):
+    """Show a strong connection indicator without exposing credentials."""
+    state_class = "connected" if api_connected else "offline"
+    state_label = "API CONNECTED" if api_connected else "API OFFLINE"
+    st.markdown(
+        f"""
+        <div class="api-status {state_class}" role="status">
+            <span class="api-light" aria-hidden="true"></span>
+            <span>{state_label}</span>
+        </div>
+        <style>
+        .api-status {{
+            align-items: center;
+            color: #8b949e;
+            display: flex;
+            font-size: 1rem;
+            font-weight: 800;
+            gap: 0.5rem;
+            letter-spacing: 0;
+            margin: 0.25rem 0 0.75rem;
+        }}
+        .api-light {{
+            background: #5f6872;
+            border: 1px solid #737d87;
+            border-radius: 50%;
+            display: inline-block;
+            height: 0.7rem;
+            width: 0.7rem;
+        }}
+        .api-status.connected {{
+            color: #6fffb0;
+        }}
+        .api-status.connected .api-light {{
+            background: #45f58a;
+            border-color: #8affb7;
+            box-shadow:
+                0 0 4px rgba(69, 245, 138, 1),
+                0 0 12px rgba(34, 197, 94, 0.9);
+        }}
+        .api-status.connected span:last-child {{
+            text-shadow:
+                0 0 4px rgba(111, 255, 176, 0.95),
+                0 0 12px rgba(34, 197, 94, 0.8);
+        }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def prepare_team_strength(raw_teams, settings):
@@ -120,59 +186,87 @@ def prepare_team_strength(raw_teams, settings):
     return raw_teams, teams, []
 
 
-def render_data_readiness(raw_teams):
-    """Render the optional data coverage table."""
-    st.subheader("Live Data Readiness")
-    st.write(
-        "The simulator accepts richer optional columns for daily data feeds. "
-        "Missing columns get neutral defaults, so the sample CSV still works."
-    )
-    st.dataframe(build_data_readiness_table(raw_teams), width="stretch", hide_index=True)
+def render_model_quality(teams):
+    """Render compact evidence and validation metrics for the trained model."""
+    bundle = load_historical_model()
+    metrics = bundle.metrics
+    ranking_date = teams["ranking_date"].dropna().max()
+    with st.expander("Model evidence"):
+        columns = st.columns(4)
+        columns[0].metric("Training matches", f"{metrics['training_matches']:,}")
+        columns[1].metric(
+            "Validation accuracy", f"{metrics['validation_accuracy']:.1%}"
+        )
+        columns[2].metric(
+            "Validation log loss",
+            f"{metrics['validation_log_loss']:.3f}",
+            delta=(
+                f"{metrics['baseline_log_loss'] - metrics['validation_log_loss']:.3f}"
+                " better"
+            ),
+        )
+        columns[3].metric("FIFA ranking date", str(ranking_date))
+        st.caption(
+            f"Validated on {metrics['validation_matches']:,} later matches. "
+            f"Results data through {bundle.last_match_date}."
+        )
 
 
 def render_team_table(teams):
-    """Render the calculated team strength table."""
-    st.subheader("Team Data")
-    available_columns = [column for column in MODEL_COLUMNS if column in teams.columns]
-    st.dataframe(
-        teams[available_columns].sort_values("strength_score", ascending=False),
-        width="stretch",
+    """Render a compact view of the inputs that drive predictions."""
+    st.subheader("Team Snapshot")
+    boost_factors = {
+        "rank_score": "FIFA ranking",
+        "elo_score": "Historical Elo",
+        "recent_form_component": "Recent form",
+        "attack_score": "Attack",
+        "defense_score": "Defense",
+        "host_advantage_component": "Host advantage",
+        "confirmed_group_finish_component": "Confirmed group finish",
+    }
+    columns = [
+        "team",
+        "group",
+        "fifa_rank",
+        "fifa_points",
+        "historical_elo",
+        "historical_form",
+        "strength_score",
+    ]
+    snapshot = teams[[column for column in columns if column in teams.columns]].copy()
+    snapshot["biggest_boost"] = teams.apply(
+        lambda row: find_biggest_factor(row, boost_factors), axis=1
     )
-
-
-def render_difficulty_index(difficulty_index):
-    """Render the Tournament Difficulty Index table."""
-    st.subheader("Tournament Difficulty Index")
-    st.write(DIFFICULTY_EXPLANATION)
-    st.caption(MATHESON_NOTE)
+    snapshot = snapshot.sort_values("strength_score", ascending=False)
+    snapshot = snapshot.rename(
+        columns={
+            "team": "Team",
+            "group": "Group",
+            "fifa_rank": "Current FIFA ranking",
+            "fifa_points": "FIFA points",
+            "historical_elo": "Historical Elo",
+            "historical_form": "Recent form",
+            "strength_score": "Model strength",
+            "biggest_boost": "Biggest boost",
+        }
+    )
+    numeric_columns = snapshot.select_dtypes(include="number").columns
+    snapshot[numeric_columns] = snapshot[numeric_columns].round(1)
     st.dataframe(
-        difficulty_index[DIFFICULTY_COLUMNS],
+        snapshot,
         width="stretch",
         hide_index=True,
-    )
-
-
-def render_team_explanations(teams, difficulty_index):
-    """Render short plain-English explanation rows for each team."""
-    st.subheader("Team Prediction Explanations")
-    explanations = build_team_explanations(teams, difficulty_index)
-    st.dataframe(
-        explanations[
-            [
-                "team",
-                "strength_score",
-                "tournament_difficulty",
-                "host_advantage",
-                "recent_form",
-                "attack_score",
-                "defense_score",
-                "biggest_positive_factor",
-                "biggest_negative_factor",
-                "explanation",
-            ]
-        ],
-        width="stretch",
-        hide_index=True,
+        column_config={
+            "Historical Elo": st.column_config.NumberColumn(
+                help=(
+                    "A team-strength rating learned from historical international "
+                    "results. It updates after each match and accounts for opponent "
+                    "quality, result, and recency."
+                ),
+                format="%.1f",
+            ),
+            "Current FIFA ranking": st.column_config.NumberColumn(format="%d"),
+        },
     )
 
 
@@ -180,7 +274,12 @@ def render_match_predictor(teams):
     """Render a simple head-to-head match predictor."""
     st.subheader("Match Predictor")
     col1, col2 = st.columns(2)
-    team_names = teams["team"].sort_values().tolist()
+    eligible_teams = (
+        teams.loc[~teams["eliminated"]]
+        if "eliminated" in teams.columns
+        else teams
+    )
+    team_names = eligible_teams["team"].sort_values().tolist()
     team_a_name = col1.selectbox("Team A", team_names, index=0)
     team_b_name = col2.selectbox("Team B", team_names, index=1)
 
@@ -188,47 +287,72 @@ def render_match_predictor(teams):
         st.info("Choose two different teams to predict a match.")
         return
 
-    team_a = teams.loc[teams["team"] == team_a_name].iloc[0]
-    team_b = teams.loc[teams["team"] == team_b_name].iloc[0]
-    probability_a = win_probability(team_a["strength_score"], team_b["strength_score"])
+    team_a = eligible_teams.loc[eligible_teams["team"] == team_a_name].iloc[0]
+    team_b = eligible_teams.loc[eligible_teams["team"] == team_b_name].iloc[0]
+    probabilities = match_probabilities(team_a, team_b)
+    probability_a = advancement_probability(team_a, team_b)
     predicted_winner = team_a_name if probability_a >= 0.5 else team_b_name
 
     st.metric("Predicted winner", predicted_winner)
     st.write(
-        f"{team_a_name}: {probability_a:.1%} win probability | "
-        f"{team_b_name}: {(1 - probability_a):.1%} win probability"
+        f"Regulation: {team_a_name} {probabilities['team_a']:.1%} | "
+        f"Draw {probabilities['draw']:.1%} | "
+        f"{team_b_name} {probabilities['team_b']:.1%}"
     )
+    st.caption(
+        f"Knockout advancement: {team_a_name} {probability_a:.1%} | "
+        f"{team_b_name} {(1 - probability_a):.1%}"
+    )
+
+
+def select_unique_pairings(round_probabilities, match_limit):
+    """Select the highest-probability pairings without repeating a team."""
+    selected_rows = []
+    selected_teams = set()
+
+    for _, pairing in round_probabilities.sort_values(
+        "pairing_probability", ascending=False
+    ).iterrows():
+        team_a = pairing["team_a"]
+        team_b = pairing["team_b"]
+        if team_a in selected_teams or team_b in selected_teams:
+            continue
+        selected_rows.append(pairing)
+        selected_teams.update([team_a, team_b])
+        if len(selected_rows) == match_limit:
+            break
+
+    return pd.DataFrame(selected_rows, columns=round_probabilities.columns)
+
+
+def load_pairing_snapshot():
+    """Load the latest saved matchup probabilities."""
+    if not LATEST_PAIRING_PREDICTIONS_CSV.exists():
+        return pd.DataFrame()
+    try:
+        return pd.read_csv(LATEST_PAIRING_PREDICTIONS_CSV)
+    except (OSError, pd.errors.EmptyDataError):
+        return pd.DataFrame()
+
+
+def save_pairing_snapshot(pairing_probabilities, number_of_simulations):
+    """Persist matchup probabilities for immediate display on future visits."""
+    snapshot = pairing_probabilities.copy()
+    snapshot["simulation_runs"] = number_of_simulations
+    snapshot["generated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    LATEST_PAIRING_PREDICTIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
+    snapshot.to_csv(LATEST_PAIRING_PREDICTIONS_CSV, index=False)
+    return snapshot
 
 
 def render_projected_pairings(teams, fixtures, number_of_simulations):
     """Render an official bracket projection and pairing probabilities."""
     st.subheader("Projected Upcoming Pairings")
-    st.write(
-        "Project FIFA's official knockout bracket and estimate how often each "
-        "possible pairing occurs."
-    )
 
-    team_signature = tuple(
-        teams.sort_values("team")[["team", "strength_score"]]
-        .round({"strength_score": 6})
-        .itertuples(index=False, name=None)
-    )
-    fixture_signature = (
-        tuple(
-            fixtures.fillna("")
-            .astype(str)
-            .itertuples(index=False, name=None)
-        )
-        if not fixtures.empty
-        else ()
-    )
-    projection_signature = (team_signature, fixture_signature, number_of_simulations)
-    if st.session_state.get("projection_signature") != projection_signature:
-        st.session_state.pop("projected_pairings", None)
-        st.session_state.pop("pairing_probabilities", None)
-        st.session_state.pop("projected_champion", None)
+    if "pairing_probabilities" not in st.session_state:
+        st.session_state["pairing_probabilities"] = load_pairing_snapshot()
 
-    if st.button("Run pairing simulations"):
+    if st.button("Refresh matchup predictions", icon=":material/sync:"):
         progress_bar = st.progress(0)
         pairing_probabilities = run_pairing_simulations(
             teams,
@@ -236,30 +360,48 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
             fixtures=fixtures,
             progress_callback=progress_bar.progress,
         )
-        pairings, champion = predict_tournament_bracket(teams, fixtures)
         progress_bar.empty()
-        st.session_state["projected_pairings"] = pairings
-        st.session_state["pairing_probabilities"] = pairing_probabilities
-        st.session_state["projected_champion"] = champion
-        st.session_state["projection_signature"] = projection_signature
-
-    pairings = st.session_state.get("projected_pairings")
-    if pairings is None:
-        return
+        st.session_state["pairing_probabilities"] = save_pairing_snapshot(
+            pairing_probabilities, number_of_simulations
+        )
 
     pairing_probabilities = st.session_state["pairing_probabilities"]
-    round_names = pairings["round"].drop_duplicates().tolist()
+    if pairing_probabilities.empty:
+        st.info("No saved matchup forecast is available yet.")
+        return
+
+    ordered_rounds = [
+        "Round of 32",
+        "Round of 16",
+        "Quarterfinals",
+        "Semifinals",
+        "Final",
+    ]
+    available_rounds = set(pairing_probabilities["round"])
+    round_names = [name for name in ordered_rounds if name in available_rounds]
+    match_limits = {
+        "Round of 32": 16,
+        "Round of 16": 8,
+        "Quarterfinals": 4,
+        "Semifinals": 2,
+        "Final": 1,
+    }
     tabs = st.tabs(round_names)
     for tab, round_name in zip(tabs, round_names):
-        round_matches = pairing_probabilities.loc[
-            pairing_probabilities["round"] == round_name,
+        round_probabilities = pairing_probabilities.loc[
+            pairing_probabilities["round"] == round_name
+        ].copy()
+        unique_pairings = select_unique_pairings(
+            round_probabilities, match_limits[round_name]
+        )
+        round_matches = unique_pairings[
             [
                 "team_a",
                 "team_b",
                 "pairing_probability",
                 "simulations",
-            ],
-        ].head(50).copy()
+            ]
+        ].copy()
         round_matches.columns = [
             "Team A",
             "Team B",
@@ -271,18 +413,23 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
         ].round(1)
         tab.dataframe(round_matches, width="stretch", hide_index=True)
 
-    st.success(
-        f"Example projected champion: {st.session_state['projected_champion']}"
+    simulation_runs = (
+        int(pairing_probabilities["simulation_runs"].iloc[0])
+        if "simulation_runs" in pairing_probabilities
+        else number_of_simulations
+    )
+    generated_at = (
+        pairing_probabilities["generated_at"].iloc[0]
+        if "generated_at" in pairing_probabilities
+        else "previously"
     )
     st.caption(
-        f"Based on {number_of_simulations:,} simulations using FIFA's official "
-        "match slots. Completed cached fixtures are held fixed."
+        f"Saved {generated_at} from {simulation_runs:,} simulations. "
+        "Completed fixtures are held fixed."
     )
 
 
-def render_simulation_results(
-    teams, difficulty_index, number_of_simulations, fixtures=None
-):
+def render_simulation_results(teams, number_of_simulations, fixtures=None):
     """Run Monte Carlo simulations and render the result tables and charts."""
     st.subheader("Tournament Simulation")
     if not st.button("Run simulations", type="primary"):
@@ -296,15 +443,7 @@ def render_simulation_results(
         progress_callback=progress_bar.progress,
     )
     progress_bar.empty()
-    results = results.merge(
-        difficulty_index[["team", "tournament_difficulty_index"]],
-        on="team",
-        how="left",
-    )
     top_10 = results.head(10)
-
-    st.success(f"Completed {number_of_simulations:,} tournament simulations.")
-    st.dataframe(results, width="stretch")
 
     winner_chart = px.bar(
         top_10.sort_values("champion_probability"),
@@ -319,27 +458,8 @@ def render_simulation_results(
     )
     winner_chart.update_layout(yaxis_title="", xaxis_ticksuffix="%")
     st.plotly_chart(winner_chart)
-
-    difficulty_chart = px.bar(
-        difficulty_index.head(10).sort_values("tournament_difficulty_index"),
-        x="tournament_difficulty_index",
-        y="team",
-        orientation="h",
-        labels={
-            "tournament_difficulty_index": "Tournament Difficulty Index",
-            "team": "Team",
-        },
-        title="Top 10 Toughest Projected Routes",
-    )
-    st.plotly_chart(difficulty_chart)
-
-    winner = results.iloc[0]
-    st.subheader("Most Likely Champion")
-    st.write(
-        f"{winner['team']} won {winner['championships']:,} out of "
-        f"{number_of_simulations:,} simulations "
-        f"({winner['champion_probability']:.2f}%)."
-    )
+    with st.expander("Full tournament probabilities"):
+        st.dataframe(results, width="stretch", hide_index=True)
 
 
 def main():
@@ -348,17 +468,14 @@ def main():
         page_icon=":trophy:",
         layout="wide",
     )
+    render_soccer_loading_icon()
 
     st.title("World Cup 2026 Winner Predictor")
-    st.write(
-        "Simulate the 2026 FIFA World Cup thousands of times to estimate each "
-        "team's chance of lifting the trophy. Upload your own team data or use "
-        "the included sample dataset."
-    )
-
     settings = render_sidebar()
-    uploaded_file = st.sidebar.file_uploader("Upload team CSV", type=["csv"])
-    raw_teams, active_source = load_selected_data(settings, uploaded_file)
+    raw_teams, active_source, api_connected = load_selected_data(
+        refresh_api=settings["refresh_api"]
+    )
+    render_api_status(api_connected)
     st.caption(f"Active data source: {active_source}")
     raw_teams, teams, validation_errors = prepare_team_strength(raw_teams, settings)
 
@@ -368,18 +485,14 @@ def main():
             st.warning(error)
         st.stop()
 
-    difficulty_index = calculate_tournament_difficulty_index(teams)
-    fixtures = load_cached_fixtures() if active_source == "Live API" else pd.DataFrame()
+    fixtures = load_cached_fixtures() if api_connected else pd.DataFrame()
 
-    render_data_readiness(raw_teams)
+    render_model_quality(teams)
     render_team_table(teams)
-    render_difficulty_index(difficulty_index)
-    render_team_explanations(teams, difficulty_index)
     render_match_predictor(teams)
     render_projected_pairings(teams, fixtures, settings["number_of_simulations"])
     render_simulation_results(
         teams,
-        difficulty_index,
         settings["number_of_simulations"],
         fixtures=fixtures,
     )

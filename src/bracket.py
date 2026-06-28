@@ -38,6 +38,44 @@ THIRD_PLACE_MATCH_BY_WINNER = {
     "1K": 87,
 }
 
+# Confirmed fixtures override simulated group positions as the bracket fills in.
+CONFIRMED_ROUND_OF_32 = {
+    73: ("South Africa", "Canada"),
+    75: ("Netherlands", "Morocco"),
+    76: ("Brazil", "Japan"),
+    78: ("Cote d'Ivoire", "Norway"),
+    81: ("United States", "Bosnia and Herzegovina"),
+    86: ("Argentina", "Cabo Verde"),
+    83: ("Portugal", "Croatia"),
+    87: ("Colombia", "Ghana"),
+    88: ("Australia", "Egypt"),
+}
+
+# Positions already settled by completed groups and confirmed knockout fixtures.
+CONFIRMED_GROUP_POSITIONS = {
+    "A": {1: "Mexico", 2: "South Africa"},
+    "B": {2: "Canada", 3: "Bosnia and Herzegovina"},
+    "C": {1: "Brazil", 2: "Morocco"},
+    "D": {1: "United States", 2: "Australia", 3: "Paraguay"},
+    "E": {1: "Germany", 2: "Cote d'Ivoire", 3: "Ecuador"},
+    "F": {1: "Netherlands", 2: "Japan", 3: "Sweden"},
+    "G": {1: "Belgium", 2: "Egypt", 3: "Iran"},
+    "H": {1: "Spain", 2: "Cabo Verde"},
+    "I": {1: "France", 2: "Norway"},
+    "J": {1: "Argentina"},
+    "K": {1: "Colombia", 2: "Portugal", 3: "Congo DR"},
+    "L": {1: "England", 2: "Croatia", 3: "Ghana"},
+}
+
+CONFIRMED_THIRD_PLACE_QUALIFIERS = {
+    "Bosnia and Herzegovina",
+    "Ecuador",
+    "Paraguay",
+    "Sweden",
+    "Congo DR",
+    "Ghana",
+}
+
 KNOCKOUT_PATHS = {
     "Round of 16": {
         89: (74, 77),
