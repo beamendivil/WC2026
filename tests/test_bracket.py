@@ -130,7 +130,7 @@ class OfficialBracketTests(unittest.TestCase):
             78: "Norway",
             79: "Mexico",
             82: "Belgium",
-            85: "England",
+            80: "England",
         }
         self.assertEqual(CONFIRMED_KNOCKOUT_WINNERS, expected_winners)
 
@@ -144,8 +144,8 @@ class OfficialBracketTests(unittest.TestCase):
             self.assertEqual(round_of_16.loc[91, "team_a"], "Brazil")
             self.assertEqual(round_of_16.loc[91, "team_b"], "Norway")
             self.assertEqual(round_of_16.loc[92, "team_a"], "Mexico")
+            self.assertEqual(round_of_16.loc[92, "team_b"], "England")
             self.assertEqual(round_of_16.loc[94, "team_b"], "Belgium")
-            self.assertEqual(round_of_16.loc[96, "team_a"], "England")
 
     def test_live_match_is_not_prematurely_locked(self):
         self.assertNotIn(81, CONFIRMED_KNOCKOUT_WINNERS)

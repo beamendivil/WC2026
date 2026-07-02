@@ -47,12 +47,12 @@ CONFIRMED_ROUND_OF_32 = {
     77: ("France", "Sweden"),
     78: ("Cote d'Ivoire", "Norway"),
     79: ("Mexico", "Ecuador"),
-    80: ("Switzerland", "Algeria"),
+    80: ("England", "Congo DR"),
     81: ("United States", "Bosnia and Herzegovina"),
     82: ("Belgium", "Senegal"),
     83: ("Portugal", "Croatia"),
     84: ("Spain", "Austria"),
-    85: ("England", "Congo DR"),
+    85: ("Switzerland", "Algeria"),
     86: ("Argentina", "Cabo Verde"),
     87: ("Colombia", "Ghana"),
     88: ("Australia", "Egypt"),
@@ -69,7 +69,7 @@ CONFIRMED_KNOCKOUT_WINNERS = {
     78: "Norway",
     79: "Mexico",
     82: "Belgium",
-    85: "England",
+    80: "England",
 }
 
 # Positions already settled by completed groups and confirmed knockout fixtures.
