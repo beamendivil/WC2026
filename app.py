@@ -8,6 +8,7 @@ import streamlit as st
 
 from src.api_config import LATEST_PAIRING_PREDICTIONS_CSV
 from src.bracket import CONFIRMED_KNOCKOUT_WINNERS, CONFIRMED_ROUND_OF_32
+from src.bracket import confirmed_knockout_pairings
 from src.data_loader import add_safe_defaults, load_sample_data, validate_team_data
 from src.explanations import find_biggest_factor
 from src.features import add_strength_scores
@@ -483,6 +484,11 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
             for match, winner in CONFIRMED_KNOCKOUT_WINNERS.items()
             if match in CONFIRMED_ROUND_OF_32
         }
+        confirmed_matchups = {
+            pairing["teams"]
+            for pairing in confirmed_knockout_pairings().values()
+            if pairing["round"] == round_name
+        }
         for pairing in round_matches.itertuples(index=False):
             team_a = teams_by_name.loc[pairing.team_a]
             team_b = teams_by_name.loc[pairing.team_b]
@@ -508,7 +514,12 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
                     winner = pairing.team_b
                     eliminated = pairing.team_a
                     winner_probability = 1 - probability_a
-                status = "Projected"
+                status = (
+                    "Confirmed matchup"
+                    if frozenset((pairing.team_a, pairing.team_b))
+                    in confirmed_matchups
+                    else "Projected"
+                )
             outcome_rows.append(
                 {
                     "Status": status,

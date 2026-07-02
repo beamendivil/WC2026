@@ -9,7 +9,11 @@ from src.bracket import (
     CONFIRMED_ROUND_OF_32,
 )
 from src.bracket import CONFIRMED_THIRD_PLACE_QUALIFIERS
-from src.bracket import build_round_of_32, load_third_place_mapping
+from src.bracket import (
+    build_round_of_32,
+    confirmed_knockout_pairings,
+    load_third_place_mapping,
+)
 from src.data_loader import add_safe_defaults, load_sample_data
 from src.features import add_strength_scores
 from src.simulator import predict_tournament_bracket, simulate_group_stage
@@ -149,6 +153,23 @@ class OfficialBracketTests(unittest.TestCase):
 
     def test_live_match_is_not_prematurely_locked(self):
         self.assertNotIn(81, CONFIRMED_KNOCKOUT_WINNERS)
+
+    def test_round_of_16_matchups_with_completed_feeders_are_confirmed(self):
+        confirmed = confirmed_knockout_pairings()
+
+        self.assertEqual(
+            confirmed[90]["teams"], frozenset(("Canada", "Morocco"))
+        )
+        self.assertEqual(
+            confirmed[89]["teams"], frozenset(("Paraguay", "France"))
+        )
+        self.assertEqual(
+            confirmed[91]["teams"], frozenset(("Brazil", "Norway"))
+        )
+        self.assertEqual(
+            confirmed[92]["teams"], frozenset(("Mexico", "England"))
+        )
+        self.assertNotIn(94, confirmed)
 
     def test_completed_fixture_automatically_sets_knockout_winner(self):
         fixtures = pd.DataFrame(

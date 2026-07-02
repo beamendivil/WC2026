@@ -122,6 +122,22 @@ KNOCKOUT_PATHS = {
 }
 
 
+def confirmed_knockout_pairings():
+    """Return downstream matchups whose feeder winners are already known."""
+    pairings = {}
+    known_winners = dict(CONFIRMED_KNOCKOUT_WINNERS)
+    for round_name, matches in KNOCKOUT_PATHS.items():
+        for match_number, (source_a, source_b) in matches.items():
+            if source_a in known_winners and source_b in known_winners:
+                pairings[match_number] = {
+                    "round": round_name,
+                    "teams": frozenset(
+                        (known_winners[source_a], known_winners[source_b])
+                    ),
+                }
+    return pairings
+
+
 @lru_cache(maxsize=1)
 def load_third_place_mapping():
     """Load FIFA Annex C's 495 third-place allocation combinations."""
