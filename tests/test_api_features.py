@@ -1,5 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from src.api_client import APIFootballClient
 from src.update_data import aggregate_player_features
@@ -10,6 +12,7 @@ class APIFeatureTests(unittest.TestCase):
     @patch("src.api_client.requests.get")
     def test_provider_errors_are_not_silently_treated_as_empty_data(self, get):
         response = Mock()
+        response.status_code = 200
         response.raise_for_status.return_value = None
         response.json.return_value = {
             "errors": {"access": "Account unavailable"},
@@ -19,6 +22,56 @@ class APIFeatureTests(unittest.TestCase):
 
         with self.assertRaisesRegex(RuntimeError, "Account unavailable"):
             APIFootballClient(api_key="test").teams()
+
+        self.assertEqual(get.call_count, 1)
+
+    @patch("src.api_client.time.sleep")
+    @patch("src.api_client.requests.get")
+    def test_rate_limit_retry_is_bounded_and_honors_retry_after(
+        self, get, sleep
+    ):
+        limited = Mock(status_code=429, headers={"Retry-After": "2"})
+        success = Mock(status_code=200, headers={})
+        success.raise_for_status.return_value = None
+        success.json.return_value = {"errors": {}, "response": [{"id": 1}]}
+        get.side_effect = [limited, success]
+
+        with TemporaryDirectory() as directory:
+            result = APIFootballClient(
+                api_key="test",
+                cache_dir=Path(directory),
+                min_request_interval=0,
+            )._get("fixtures")
+
+        self.assertEqual(result, [{"id": 1}])
+        self.assertEqual(get.call_count, 2)
+        sleep.assert_called_once_with(2.0)
+
+    @patch("src.api_client.requests.get")
+    def test_slow_endpoint_cache_avoids_a_second_network_call(self, get):
+        response = Mock(status_code=200, headers={})
+        response.raise_for_status.return_value = None
+        response.json.return_value = {
+            "errors": {},
+            "response": [{"name": "Mexico"}],
+        }
+        get.return_value = response
+
+        with TemporaryDirectory() as directory:
+            cache_dir = Path(directory)
+            first = APIFootballClient(
+                api_key="test",
+                cache_dir=cache_dir,
+                min_request_interval=0,
+            ).countries()
+            second = APIFootballClient(
+                api_key="test",
+                cache_dir=cache_dir,
+                min_request_interval=0,
+            ).countries()
+
+        self.assertEqual(first, second)
+        self.assertEqual(get.call_count, 1)
 
     def test_match_winner_odds_are_converted_to_no_vig_probabilities(self):
         odds = flatten_odds(

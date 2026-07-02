@@ -13,6 +13,9 @@ API_FOOTBALL_LEAGUE = 1
 API_FOOTBALL_SEASON = 2026
 CACHE_TTL_HOURS = 12
 API_RETRY_COOLDOWN_MINUTES = 30
+API_MIN_REQUEST_INTERVAL_SECONDS = 0.35
+API_MAX_RETRIES = 3
+API_MAX_RETRY_AFTER_SECONDS = 30
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -26,6 +29,7 @@ LIVE_AVAILABILITY_CSV = DATA_DIR / "live_availability.csv"
 LIVE_ODDS_CSV = DATA_DIR / "live_odds.csv"
 LIVE_COUNTRIES_CSV = DATA_DIR / "live_countries.csv"
 API_CACHE_META = DATA_DIR / "api_cache_timestamp.txt"
+API_RESPONSE_CACHE_DIR = DATA_DIR / "api_response_cache"
 LATEST_PAIRING_PREDICTIONS_CSV = DATA_DIR / "latest_pairing_predictions.csv"
 
 
