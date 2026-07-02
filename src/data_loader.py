@@ -6,6 +6,7 @@ import pandas as pd
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 SAMPLE_TEAMS_PATH = DATA_DIR / "sample_teams.csv"
 SAMPLE_MATCHES_PATH = DATA_DIR / "sample_matches.csv"
+CURRENT_TOURNAMENT_STATS_PATH = DATA_DIR / "current_tournament_stats.csv"
 
 REQUIRED_COLUMNS = [
     "team",
@@ -61,6 +62,7 @@ OPTIONAL_COLUMNS = [
     "venue_impact",
     "market_implied_prob",
     "current_points",
+    "current_matches_played",
     "current_goal_difference",
     "current_goals_for",
     "match_status",
@@ -93,6 +95,7 @@ NUMERIC_OPTIONAL_DEFAULTS = {
     "venue_impact": 0,
     "market_implied_prob": 0,
     "current_points": 0,
+    "current_matches_played": 0,
     "current_goal_difference": 0,
     "current_goals_for": 0,
 }
@@ -156,9 +159,24 @@ def create_sample_dataframe():
 def load_sample_data():
     """Load the included sample CSV, falling back to embedded demo data."""
     try:
-        return pd.read_csv(SAMPLE_TEAMS_PATH)
+        teams = pd.read_csv(SAMPLE_TEAMS_PATH)
     except FileNotFoundError:
-        return create_sample_dataframe()
+        teams = create_sample_dataframe()
+    return enrich_with_current_tournament_stats(teams)
+
+
+def enrich_with_current_tournament_stats(teams):
+    """Merge the latest manually verified tournament snapshot by team."""
+    try:
+        current = pd.read_csv(CURRENT_TOURNAMENT_STATS_PATH)
+    except (FileNotFoundError, pd.errors.EmptyDataError):
+        return teams
+    duplicate_columns = [
+        column for column in current.columns if column != "team" and column in teams
+    ]
+    return teams.drop(columns=duplicate_columns).merge(
+        current, on="team", how="left"
+    )
 
 
 def load_sample_matches():

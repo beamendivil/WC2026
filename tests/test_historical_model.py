@@ -30,6 +30,14 @@ class HistoricalModelTests(unittest.TestCase):
         self.assertTrue(self.teams["fifa_points"].notna().all())
         self.assertEqual(set(self.teams["ranking_date"]), {"2026-06-11"})
 
+    def test_current_tournament_snapshot_enriches_team_form(self):
+        mexico = self.teams.loc["Mexico"]
+
+        self.assertEqual(mexico["current_matches_played"], 4)
+        self.assertEqual(mexico["current_points"], 12)
+        self.assertEqual(mexico["current_goal_difference"], 8)
+        self.assertEqual(mexico["last_five_form"], "W-W-W-W-W")
+
     def test_probabilities_are_complete_and_bounded(self):
         argentina = self.teams.loc["Argentina"]
         cabo_verde = self.teams.loc["Cabo Verde"]

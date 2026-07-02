@@ -173,11 +173,17 @@ def add_strength_scores(
     teams["market_component"] = (
         normalize_series(teams["market_implied_prob"]) * market_weight
     )
+    matches_played = teams["current_matches_played"].replace(0, np.nan)
+    points_per_match = (teams["current_points"] / matches_played).fillna(0)
+    goal_difference_per_match = (
+        teams["current_goal_difference"] / matches_played
+    ).fillna(0)
+    goals_per_match = (teams["current_goals_for"] / matches_played).fillna(0)
     teams["tournament_position_component"] = (
-        teams["current_points"] * 0.8
-        + teams["current_goal_difference"] * 0.35
-        + teams["current_goals_for"] * 0.15
-    )
+        points_per_match * 2.0
+        + goal_difference_per_match * 0.8
+        + goals_per_match * 0.4
+    ).clip(lower=-2, upper=10)
     confirmed_positions = {
         team: position
         for positions in CONFIRMED_GROUP_POSITIONS.values()
