@@ -7,7 +7,11 @@ import plotly.express as px
 import streamlit as st
 
 from src.api_config import LATEST_PAIRING_PREDICTIONS_CSV
-from src.bracket import CONFIRMED_KNOCKOUT_WINNERS, CONFIRMED_ROUND_OF_32
+from src.bracket import (
+    CONFIRMED_KNOCKOUT_WINNERS,
+    CONFIRMED_MATCH_CONTEXTS,
+    CONFIRMED_ROUND_OF_32,
+)
 from src.bracket import confirmed_knockout_pairings
 from src.bracket import knockout_match_number
 from src.data_loader import add_safe_defaults, load_sample_data, validate_team_data
@@ -530,6 +534,16 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
                 )
             outcome_rows.append(
                 {
+                    "Venue": (
+                        CONFIRMED_MATCH_CONTEXTS.get(match_number, {}).get(
+                            "stadium", "TBD"
+                        )
+                    ),
+                    "Altitude (m)": (
+                        CONFIRMED_MATCH_CONTEXTS.get(match_number, {}).get(
+                            "altitude_m", 0
+                        )
+                    ),
                     "Status": status,
                     "Winner": winner,
                     "Eliminated": eliminated,
@@ -545,6 +559,8 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
             "Team B",
             "Pairing probability %",
             "Simulations",
+            "Venue",
+            "Altitude (m)",
             "Status",
             "Winner",
             "Eliminated",

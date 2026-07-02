@@ -4,6 +4,7 @@ import unittest
 import pandas as pd
 
 from src.bracket import (
+    CONFIRMED_MATCH_CONTEXTS,
     CONFIRMED_GROUP_POSITIONS,
     CONFIRMED_KNOCKOUT_WINNERS,
     CONFIRMED_ROUND_OF_32,
@@ -185,9 +186,12 @@ class OfficialBracketTests(unittest.TestCase):
             mexico_at_azteca, england_at_azteca
         )
 
-        self.assertEqual(mexico_at_azteca["stadium"], "Estadio Azteca")
+        self.assertIn("Estadio Azteca", mexico_at_azteca["stadium"])
         self.assertEqual(mexico_at_azteca["altitude_m"], 2240)
         self.assertGreater(contextualized, baseline)
+
+    def test_every_knockout_match_has_an_official_venue(self):
+        self.assertEqual(set(CONFIRMED_MATCH_CONTEXTS), set(range(73, 105)))
 
     def test_completed_fixture_automatically_sets_knockout_winner(self):
         fixtures = pd.DataFrame(

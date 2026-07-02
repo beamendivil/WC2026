@@ -121,16 +121,48 @@ KNOCKOUT_PATHS = {
     "Final": {104: (101, 102)},
 }
 
-# Match-specific conditions belong to the fixture, not permanently to either team.
-# Altitude is in meters above sea level.
+# FIFA's official knockout venue allocation. Match-specific conditions belong
+# to the fixture, not permanently to either team. Altitude is in meters above
+# sea level and is intentionally approximate because the model bounds its effect.
 CONFIRMED_MATCH_CONTEXTS = {
+    73: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    74: {"stadium": "Boston Stadium", "city": "Boston", "country": "United States", "altitude_m": 43},
+    75: {"stadium": "Estadio Monterrey", "city": "Monterrey", "country": "Mexico", "altitude_m": 540},
+    76: {"stadium": "Houston Stadium", "city": "Houston", "country": "United States", "altitude_m": 24},
+    77: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
+    78: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    79: {"stadium": "Mexico City Stadium", "city": "Mexico City", "country": "Mexico", "altitude_m": 2240, "home_team": "Mexico"},
+    80: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    81: {"stadium": "San Francisco Bay Area Stadium", "city": "Santa Clara", "country": "United States", "altitude_m": 12, "home_team": "United States"},
+    82: {"stadium": "Seattle Stadium", "city": "Seattle", "country": "United States", "altitude_m": 56},
+    83: {"stadium": "Toronto Stadium", "city": "Toronto", "country": "Canada", "altitude_m": 76},
+    84: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    85: {"stadium": "BC Place Vancouver", "city": "Vancouver", "country": "Canada", "altitude_m": 2},
+    86: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    87: {"stadium": "Kansas City Stadium", "city": "Kansas City", "country": "United States", "altitude_m": 277},
+    88: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    89: {"stadium": "Philadelphia Stadium", "city": "Philadelphia", "country": "United States", "altitude_m": 12},
+    90: {"stadium": "Houston Stadium", "city": "Houston", "country": "United States", "altitude_m": 24},
+    91: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
     92: {
-        "stadium": "Estadio Azteca",
+        "stadium": "Mexico City Stadium (Estadio Azteca)",
         "city": "Mexico City",
         "country": "Mexico",
         "altitude_m": 2240,
         "home_team": "Mexico",
     },
+    93: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    94: {"stadium": "Seattle Stadium", "city": "Seattle", "country": "United States", "altitude_m": 56},
+    95: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    96: {"stadium": "BC Place Vancouver", "city": "Vancouver", "country": "Canada", "altitude_m": 2},
+    97: {"stadium": "Boston Stadium", "city": "Boston", "country": "United States", "altitude_m": 43},
+    98: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    99: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    100: {"stadium": "Kansas City Stadium", "city": "Kansas City", "country": "United States", "altitude_m": 277},
+    101: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    102: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    103: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    104: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
 }
 
 
