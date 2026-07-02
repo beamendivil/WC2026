@@ -8,6 +8,7 @@ from src.api_client import APIFootballClient
 from src.api_config import API_RETRY_COOLDOWN_MINUTES
 from src.api_config import API_CACHE_META, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
 from src.api_config import CACHE_TTL_HOURS, LIVE_FIXTURES_CSV, LIVE_MATCH_STATS_CSV
+from src.api_config import LIVE_AVAILABILITY_CSV, LIVE_PLAYER_STATS_CSV
 from src.api_config import LIVE_COUNTRIES_CSV, LIVE_ODDS_CSV, LIVE_STANDINGS_CSV
 from src.api_config import LIVE_TEAMS_CSV
 from src.api_config import has_api_key
@@ -254,17 +255,207 @@ def flatten_standings(raw_standings):
 
 
 def flatten_odds(raw_odds):
-    """Save raw-ish odds summary when the endpoint is available."""
+    """Normalize match-winner prices and remove each book's overround."""
     rows = []
     for item in raw_odds:
         fixture = item.get("fixture", {})
+        normalized = []
+        for bookmaker in item.get("bookmakers", []) or []:
+            for bet in bookmaker.get("bets", []) or []:
+                if str(bet.get("name", "")).lower() != "match winner":
+                    continue
+                prices = {
+                    str(value.get("value", "")).lower(): pd.to_numeric(
+                        value.get("odd"), errors="coerce"
+                    )
+                    for value in bet.get("values", []) or []
+                }
+                implied = {
+                    outcome: 1 / price
+                    for outcome, price in prices.items()
+                    if pd.notna(price) and price > 1
+                }
+                total = sum(implied.values())
+                if total > 0:
+                    normalized.append(
+                        {
+                            outcome: probability / total
+                            for outcome, probability in implied.items()
+                        }
+                    )
         rows.append(
             {
                 "fixture_id": fixture.get("id"),
                 "bookmakers_count": len(item.get("bookmakers", []) or []),
+                "market_home_probability": (
+                    sum(row.get("home", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
+                "market_draw_probability": (
+                    sum(row.get("draw", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
+                "market_away_probability": (
+                    sum(row.get("away", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
             }
         )
     return pd.DataFrame(rows)
+
+
+def flatten_player_stats(raw_fixture_details):
+    """Return one normalized row per player appearance."""
+    rows = []
+    for item in raw_fixture_details:
+        fixture_id = (item.get("fixture") or {}).get("id")
+        for team_block in item.get("players", []) or []:
+            team = team_block.get("team", {}) or {}
+            for entry in team_block.get("players", []) or []:
+                player = entry.get("player", {}) or {}
+                for stats in entry.get("statistics", []) or []:
+                    games = stats.get("games", {}) or {}
+                    goals = stats.get("goals", {}) or {}
+                    shots = stats.get("shots", {}) or {}
+                    passes = stats.get("passes", {}) or {}
+                    tackles = stats.get("tackles", {}) or {}
+                    rows.append(
+                        {
+                            "fixture_id": fixture_id,
+                            "team": team.get("name"),
+                            "team_id": team.get("id"),
+                            "player": player.get("name"),
+                            "player_id": player.get("id"),
+                            "position": games.get("position"),
+                            "minutes": pd.to_numeric(
+                                games.get("minutes"), errors="coerce"
+                            ),
+                            "rating": pd.to_numeric(
+                                games.get("rating"), errors="coerce"
+                            ),
+                            "goals": goals.get("total", 0) or 0,
+                            "assists": goals.get("assists", 0) or 0,
+                            "goals_conceded": goals.get("conceded", 0) or 0,
+                            "saves": goals.get("saves", 0) or 0,
+                            "shots": shots.get("total", 0) or 0,
+                            "shots_on_target": shots.get("on", 0) or 0,
+                            "key_passes": passes.get("key", 0) or 0,
+                            "tackles": tackles.get("total", 0) or 0,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def flatten_availability(raw_injuries):
+    """Normalize injury and suspension reports."""
+    rows = []
+    for item in raw_injuries:
+        player = item.get("player", {}) or {}
+        team = item.get("team", {}) or {}
+        fixture = item.get("fixture", {}) or {}
+        reason = str(player.get("reason") or item.get("type") or "Unknown")
+        rows.append(
+            {
+                "fixture_id": fixture.get("id"),
+                "team": team.get("name"),
+                "team_id": team.get("id"),
+                "player": player.get("name"),
+                "player_id": player.get("id"),
+                "reason": reason,
+                "availability_type": item.get("type", "Unknown"),
+                "is_suspension": "suspend" in reason.lower(),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def aggregate_player_features(player_stats):
+    """Create bounded team features from player-match production."""
+    if player_stats.empty:
+        return pd.DataFrame()
+    stats = player_stats.copy()
+    stats["minutes"] = pd.to_numeric(stats["minutes"], errors="coerce").fillna(0)
+    stats["rating"] = pd.to_numeric(stats["rating"], errors="coerce")
+    stats["weighted_rating"] = stats["rating"] * stats["minutes"]
+    team_rows = []
+    for (team_id, team), group in stats.groupby(["team_id", "team"], dropna=False):
+        minutes = group["minutes"].sum()
+        rating = (
+            group["weighted_rating"].sum() / minutes if minutes else 6.5
+        )
+        goalkeepers = group.loc[group["position"] == "G"]
+        saves = pd.to_numeric(goalkeepers["saves"], errors="coerce").fillna(0).sum()
+        conceded = pd.to_numeric(
+            goalkeepers["goals_conceded"], errors="coerce"
+        ).fillna(0).sum()
+        save_rate = saves / (saves + conceded) if saves + conceded else 0.65
+        team_rows.append(
+            {
+                "team_id": team_id,
+                "team": team,
+                "expected_lineup_score": max(-2, min(2, (rating - 6.5) * 2)),
+                "goalkeeper_score": max(-1.5, min(1.5, (save_rate - 0.65) * 5)),
+                "player_minutes_observed": minutes,
+            }
+        )
+    return pd.DataFrame(team_rows)
+
+
+def merge_advanced_live_features(
+    teams_df, fixtures_df, odds_df, player_stats_df, availability_df
+):
+    """Merge market, player, and availability signals into model rows."""
+    if teams_df.empty:
+        return teams_df
+    live = teams_df.copy()
+    player_features = aggregate_player_features(player_stats_df)
+    if not player_features.empty:
+        live = live.drop(
+            columns=["expected_lineup_score", "goalkeeper_score"], errors="ignore"
+        ).merge(
+            player_features[
+                ["team_id", "expected_lineup_score", "goalkeeper_score"]
+            ],
+            on="team_id",
+            how="left",
+        )
+
+    if not availability_df.empty:
+        availability = availability_df.groupby("team_id").agg(
+            injury_impact=("is_suspension", lambda values: min(2, (~values).sum() * 0.35)),
+            suspension_impact=("is_suspension", lambda values: min(2, values.sum() * 0.5)),
+        ).reset_index()
+        live = live.drop(
+            columns=["injury_impact", "suspension_impact"], errors="ignore"
+        ).merge(availability, on="team_id", how="left")
+
+    if not odds_df.empty and not fixtures_df.empty:
+        market = fixtures_df[
+            ["fixture_id", "team_home_id", "team_away_id", "match_status"]
+        ].merge(odds_df, on="fixture_id", how="inner")
+        market = market.loc[~market["match_status"].isin({"FT", "AET", "PEN"})]
+        market_rows = []
+        for row in market.itertuples(index=False):
+            market_rows.extend(
+                [
+                    {
+                        "team_id": row.team_home_id,
+                        "market_implied_prob": row.market_home_probability,
+                    },
+                    {
+                        "team_id": row.team_away_id,
+                        "market_implied_prob": row.market_away_probability,
+                    },
+                ]
+            )
+        if market_rows:
+            latest_market = pd.DataFrame(market_rows).dropna().drop_duplicates(
+                "team_id", keep="last"
+            )
+            live = live.drop(columns=["market_implied_prob"], errors="ignore").merge(
+                latest_market, on="team_id", how="left"
+            )
+    return live
 
 
 def flatten_match_stats(raw_stats):
@@ -396,6 +587,9 @@ def save_live_data(force=False):
             client.standings, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
         )
         raw_odds = safe_get(client.odds, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+        raw_injuries = safe_get(
+            client.injuries, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
+        )
         raw_countries = safe_get(client.countries)
 
         fixtures_df = flatten_fixtures(raw_fixtures)
@@ -415,21 +609,48 @@ def save_live_data(force=False):
                     "and the /countries fallback was unavailable."
                 )
         odds_df = flatten_odds(raw_odds)
+        availability_df = flatten_availability(raw_injuries)
 
-        stats_frames = []
-        fixture_ids = fixtures_df.get(
+        completed_fixtures = fixtures_df.loc[
+            fixtures_df.get("match_status", pd.Series(dtype=object)).isin(
+                {"FT", "AET", "PEN"}
+            )
+        ]
+        fixture_ids = completed_fixtures.get(
             "fixture_id", pd.Series(dtype=object)
-        ).dropna().head(25)
-        for fixture_id in fixture_ids:
-            stats = safe_get(client.statistics, fixture_id)
-            if stats:
-                frame = flatten_match_stats(stats)
-                frame["fixture_id"] = fixture_id
-                stats_frames.append(frame)
+        ).dropna()
+        stats_frames = []
+        player_frames = []
+        fixture_id_list = fixture_ids.astype(int).tolist()
+        for index in range(0, len(fixture_id_list), 20):
+            details = safe_get(
+                client.fixture_details, fixture_id_list[index : index + 20]
+            )
+            if details:
+                player_frames.append(flatten_player_stats(details))
+                for item in details:
+                    fixture_id = (item.get("fixture") or {}).get("id")
+                    fixture_stats = item.get("statistics", []) or []
+                    if fixture_stats:
+                        frame = flatten_match_stats(fixture_stats)
+                        frame["fixture_id"] = fixture_id
+                        stats_frames.append(frame)
         stats_df = (
             pd.concat(stats_frames, ignore_index=True)
             if stats_frames
             else pd.DataFrame()
+        )
+        player_stats_df = (
+            pd.concat(player_frames, ignore_index=True)
+            if player_frames
+            else pd.DataFrame()
+        )
+        teams_df = merge_advanced_live_features(
+            teams_df,
+            fixtures_df,
+            odds_df,
+            player_stats_df,
+            availability_df,
         )
 
         LIVE_TEAMS_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -437,6 +658,8 @@ def save_live_data(force=False):
         fixtures_df.to_csv(LIVE_FIXTURES_CSV, index=False)
         standings_df.to_csv(LIVE_STANDINGS_CSV, index=False)
         stats_df.to_csv(LIVE_MATCH_STATS_CSV, index=False)
+        player_stats_df.to_csv(LIVE_PLAYER_STATS_CSV, index=False)
+        availability_df.to_csv(LIVE_AVAILABILITY_CSV, index=False)
         odds_df.to_csv(LIVE_ODDS_CSV, index=False)
         countries_df.to_csv(LIVE_COUNTRIES_CSV, index=False)
         mark_cache_updated()

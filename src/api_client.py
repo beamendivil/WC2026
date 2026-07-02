@@ -24,10 +24,23 @@ class APIFootballClient:
         response = requests.get(url, headers=headers, params=params or {}, timeout=30)
         response.raise_for_status()
         payload = response.json()
+        errors = payload.get("errors")
+        if errors:
+            message = (
+                "; ".join(f"{key}: {value}" for key, value in errors.items())
+                if isinstance(errors, dict)
+                else str(errors)
+            )
+            raise RuntimeError(f"API-Football error: {message}")
         return payload.get("response", [])
 
     def fixtures(self, league=1, season=2026):
         return self._get("fixtures", {"league": league, "season": season})
+
+    def fixture_details(self, fixture_ids):
+        """Fetch full fixture payloads, including player statistics, in a batch."""
+        ids = "-".join(str(fixture_id) for fixture_id in fixture_ids)
+        return self._get("fixtures", {"ids": ids})
 
     def teams(self, league=1, season=2026):
         return self._get("teams", {"league": league, "season": season})
