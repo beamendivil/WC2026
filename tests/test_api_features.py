@@ -3,12 +3,24 @@ from unittest.mock import Mock, patch
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import pandas as pd
+
 from src.api_client import APIFootballClient
+from app import bracket_signature
 from src.update_data import aggregate_player_features
 from src.update_data import flatten_odds, flatten_player_stats
 
 
 class APIFeatureTests(unittest.TestCase):
+    def test_prediction_cache_changes_when_model_inputs_change(self):
+        teams = pd.DataFrame(
+            [{"team": "Mexico", "strength_score": 60.0}]
+        )
+        original = bracket_signature(teams=teams)
+        teams.loc[0, "strength_score"] = 61.0
+
+        self.assertNotEqual(original, bracket_signature(teams=teams))
+
     @patch("src.api_client.requests.get")
     def test_provider_errors_are_not_silently_treated_as_empty_data(self, get):
         response = Mock()

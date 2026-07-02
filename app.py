@@ -346,7 +346,7 @@ def select_unique_pairings(round_probabilities, match_limit):
     return pd.DataFrame(selected_rows, columns=round_probabilities.columns)
 
 
-def load_pairing_snapshot(fixtures):
+def load_pairing_snapshot(fixtures, teams=None):
     """Load the latest saved matchup probabilities."""
     if not LATEST_PAIRING_PREDICTIONS_CSV.exists():
         return pd.DataFrame()
@@ -356,19 +356,45 @@ def load_pairing_snapshot(fixtures):
         return pd.DataFrame()
     if (
         "bracket_signature" not in snapshot
-        or snapshot["bracket_signature"].iloc[0] != bracket_signature(fixtures)
+        or snapshot["bracket_signature"].iloc[0]
+        != bracket_signature(fixtures, teams)
     ):
         return pd.DataFrame()
     return snapshot
 
 
-def bracket_signature(fixtures=None):
-    """Fingerprint confirmed fixtures and completed scores."""
+def bracket_signature(fixtures=None, teams=None):
+    """Fingerprint bracket state, venue context, and model inputs."""
     confirmed = sorted(
         (match, team_a, team_b)
         for match, (team_a, team_b) in CONFIRMED_ROUND_OF_32.items()
     )
     winners = sorted(CONFIRMED_KNOCKOUT_WINNERS.items())
+    model_inputs = []
+    if teams is not None and not teams.empty:
+        signature_columns = [
+            column
+            for column in [
+                "team",
+                "strength_score",
+                "historical_elo",
+                "derived_form_score",
+                "tournament_position_component",
+                "expected_lineup_score",
+                "goalkeeper_score",
+                "injury_impact",
+                "suspension_impact",
+                "market_implied_prob",
+            ]
+            if column in teams.columns
+        ]
+        model_inputs = (
+            teams[signature_columns]
+            .sort_values("team")
+            .round(6)
+            .fillna(0)
+            .to_dict("records")
+        )
     completed = []
     if fixtures is not None and not fixtures.empty:
         required = {
@@ -392,18 +418,26 @@ def bracket_signature(fixtures=None):
                 for row in completed_rows.itertuples(index=False)
             )
     payload = json.dumps(
-        {"confirmed": confirmed, "winners": winners, "completed": completed},
+        {
+            "confirmed": confirmed,
+            "winners": winners,
+            "match_contexts": CONFIRMED_MATCH_CONTEXTS,
+            "model_inputs": model_inputs,
+            "completed": completed,
+        },
         separators=(",", ":"),
     ).encode()
     return hashlib.sha256(payload).hexdigest()[:16]
 
 
-def save_pairing_snapshot(pairing_probabilities, number_of_simulations, fixtures=None):
+def save_pairing_snapshot(
+    pairing_probabilities, number_of_simulations, fixtures=None, teams=None
+):
     """Persist matchup probabilities for immediate display on future visits."""
     snapshot = pairing_probabilities.copy()
     snapshot["simulation_runs"] = number_of_simulations
     snapshot["generated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
-    snapshot["bracket_signature"] = bracket_signature(fixtures)
+    snapshot["bracket_signature"] = bracket_signature(fixtures, teams)
     LATEST_PAIRING_PREDICTIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
     snapshot.to_csv(LATEST_PAIRING_PREDICTIONS_CSV, index=False)
     return snapshot
@@ -414,7 +448,7 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
     st.subheader("Knockout Pairings")
     teams_by_name = teams.set_index("team")
 
-    current_signature = bracket_signature(fixtures)
+    current_signature = bracket_signature(fixtures, teams)
     session_predictions = st.session_state.get("pairing_probabilities")
     session_is_current = (
         session_predictions is not None
@@ -423,7 +457,9 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
         and session_predictions["bracket_signature"].iloc[0] == current_signature
     )
     if not session_is_current:
-        st.session_state["pairing_probabilities"] = load_pairing_snapshot(fixtures)
+        st.session_state["pairing_probabilities"] = load_pairing_snapshot(
+            fixtures, teams
+        )
 
     if st.button("Refresh matchup predictions", icon=":material/sync:"):
         progress_bar = st.progress(0)
@@ -435,7 +471,7 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
         )
         progress_bar.empty()
         st.session_state["pairing_probabilities"] = save_pairing_snapshot(
-            pairing_probabilities, number_of_simulations, fixtures
+            pairing_probabilities, number_of_simulations, fixtures, teams
         )
 
     pairing_probabilities = st.session_state["pairing_probabilities"]
@@ -579,7 +615,9 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
     )
     st.caption(
         f"Saved {generated_at} from {simulation_runs:,} simulations. "
-        "Completed fixtures are held fixed."
+        "Completed fixtures are held fixed. Projected winners are conditional "
+        "on that matchup; later tabs independently show the most frequent "
+        "Monte Carlo pairings."
     )
 
 
