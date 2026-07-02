@@ -41,14 +41,35 @@ THIRD_PLACE_MATCH_BY_WINNER = {
 # Confirmed fixtures override simulated group positions as the bracket fills in.
 CONFIRMED_ROUND_OF_32 = {
     73: ("South Africa", "Canada"),
+    74: ("Germany", "Paraguay"),
     75: ("Netherlands", "Morocco"),
     76: ("Brazil", "Japan"),
+    77: ("France", "Sweden"),
     78: ("Cote d'Ivoire", "Norway"),
+    79: ("Mexico", "Ecuador"),
+    80: ("England", "Congo DR"),
     81: ("United States", "Bosnia and Herzegovina"),
-    86: ("Argentina", "Cabo Verde"),
+    82: ("Belgium", "Senegal"),
     83: ("Portugal", "Croatia"),
+    84: ("Spain", "Austria"),
+    85: ("Switzerland", "Algeria"),
+    86: ("Argentina", "Cabo Verde"),
     87: ("Colombia", "Ghana"),
     88: ("Australia", "Egypt"),
+}
+
+# Completed knockout matches are observations, not probabilities. Their winners
+# stay fixed in every simulation and feed the correct team into the next round.
+CONFIRMED_KNOCKOUT_WINNERS = {
+    73: "Canada",
+    74: "Paraguay",
+    75: "Morocco",
+    76: "Brazil",
+    77: "France",
+    78: "Norway",
+    79: "Mexico",
+    82: "Belgium",
+    80: "England",
 }
 
 # Positions already settled by completed groups and confirmed knockout fixtures.
@@ -99,6 +120,80 @@ KNOCKOUT_PATHS = {
     },
     "Final": {104: (101, 102)},
 }
+
+# FIFA's official knockout venue allocation. Match-specific conditions belong
+# to the fixture, not permanently to either team. Altitude is in meters above
+# sea level and is intentionally approximate because the model bounds its effect.
+CONFIRMED_MATCH_CONTEXTS = {
+    73: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    74: {"stadium": "Boston Stadium", "city": "Boston", "country": "United States", "altitude_m": 43},
+    75: {"stadium": "Estadio Monterrey", "city": "Monterrey", "country": "Mexico", "altitude_m": 540},
+    76: {"stadium": "Houston Stadium", "city": "Houston", "country": "United States", "altitude_m": 24},
+    77: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
+    78: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    79: {"stadium": "Mexico City Stadium", "city": "Mexico City", "country": "Mexico", "altitude_m": 2240, "home_team": "Mexico"},
+    80: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    81: {"stadium": "San Francisco Bay Area Stadium", "city": "Santa Clara", "country": "United States", "altitude_m": 12, "home_team": "United States"},
+    82: {"stadium": "Seattle Stadium", "city": "Seattle", "country": "United States", "altitude_m": 56},
+    83: {"stadium": "Toronto Stadium", "city": "Toronto", "country": "Canada", "altitude_m": 76},
+    84: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    85: {"stadium": "BC Place Vancouver", "city": "Vancouver", "country": "Canada", "altitude_m": 2},
+    86: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    87: {"stadium": "Kansas City Stadium", "city": "Kansas City", "country": "United States", "altitude_m": 277},
+    88: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    89: {"stadium": "Philadelphia Stadium", "city": "Philadelphia", "country": "United States", "altitude_m": 12},
+    90: {"stadium": "Houston Stadium", "city": "Houston", "country": "United States", "altitude_m": 24},
+    91: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
+    92: {
+        "stadium": "Mexico City Stadium (Estadio Azteca)",
+        "city": "Mexico City",
+        "country": "Mexico",
+        "altitude_m": 2240,
+        "home_team": "Mexico",
+    },
+    93: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    94: {"stadium": "Seattle Stadium", "city": "Seattle", "country": "United States", "altitude_m": 56},
+    95: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    96: {"stadium": "BC Place Vancouver", "city": "Vancouver", "country": "Canada", "altitude_m": 2},
+    97: {"stadium": "Boston Stadium", "city": "Boston", "country": "United States", "altitude_m": 43},
+    98: {"stadium": "Los Angeles Stadium", "city": "Los Angeles", "country": "United States", "altitude_m": 71},
+    99: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    100: {"stadium": "Kansas City Stadium", "city": "Kansas City", "country": "United States", "altitude_m": 277},
+    101: {"stadium": "Dallas Stadium", "city": "Arlington", "country": "United States", "altitude_m": 184},
+    102: {"stadium": "Atlanta Stadium", "city": "Atlanta", "country": "United States", "altitude_m": 320},
+    103: {"stadium": "Miami Stadium", "city": "Miami", "country": "United States", "altitude_m": 2},
+    104: {"stadium": "New York New Jersey Stadium", "city": "East Rutherford", "country": "United States", "altitude_m": 3},
+}
+
+
+def confirmed_knockout_pairings():
+    """Return downstream matchups whose feeder winners are already known."""
+    pairings = {}
+    known_winners = dict(CONFIRMED_KNOCKOUT_WINNERS)
+    for round_name, matches in KNOCKOUT_PATHS.items():
+        for match_number, (source_a, source_b) in matches.items():
+            if source_a in known_winners and source_b in known_winners:
+                pairings[match_number] = {
+                    "round": round_name,
+                    "teams": frozenset(
+                        (known_winners[source_a], known_winners[source_b])
+                    ),
+                }
+    return pairings
+
+
+def knockout_match_number(round_name, team_a, team_b):
+    """Return a known match number for a confirmed knockout pairing."""
+    teams = frozenset((team_a, team_b))
+    if round_name == "Round of 32":
+        for match_number, pairing in CONFIRMED_ROUND_OF_32.items():
+            if frozenset(pairing) == teams:
+                return match_number
+        return None
+    for match_number, pairing in confirmed_knockout_pairings().items():
+        if pairing["round"] == round_name and pairing["teams"] == teams:
+            return match_number
+    return None
 
 
 @lru_cache(maxsize=1)

@@ -4,14 +4,17 @@ from datetime import datetime, timedelta
 import pandas as pd
 from pandas.errors import EmptyDataError
 
-from src.api_client import APIFootballClient
+from src.football_data_client import FootballDataClient
 from src.api_config import API_RETRY_COOLDOWN_MINUTES
-from src.api_config import API_CACHE_META, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
+from src.api_config import API_CACHE_META
+from src.api_config import FOOTBALL_DATA_COMPETITION, FOOTBALL_DATA_SEASON
 from src.api_config import CACHE_TTL_HOURS, LIVE_FIXTURES_CSV, LIVE_MATCH_STATS_CSV
+from src.api_config import LIVE_AVAILABILITY_CSV, LIVE_PLAYER_STATS_CSV
 from src.api_config import LIVE_COUNTRIES_CSV, LIVE_ODDS_CSV, LIVE_STANDINGS_CSV
 from src.api_config import LIVE_TEAMS_CSV
 from src.api_config import has_api_key
 from src.data_loader import HOST_TEAMS, load_sample_data
+from src.historical_model import HISTORICAL_RESULTS_PATH, canonical_team_name
 
 
 COUNTRY_FALLBACK_TEAM_COUNT = 48
@@ -226,6 +229,138 @@ def flatten_fixtures(raw_fixtures):
     return pd.DataFrame(rows)
 
 
+def flatten_football_data_teams(raw_teams):
+    """Map football-data.org team identifiers onto the official local roster."""
+    provider_teams = {}
+    for item in raw_teams:
+        name = canonical_team_name(item.get("name"))
+        provider_teams[name] = item
+    teams = load_sample_data().copy()
+    teams["team_id"] = teams["team"].map(
+        lambda name: (provider_teams.get(name) or {}).get("id")
+    )
+    teams["data_source_note"] = teams["team"].map(
+        lambda name: (
+            "football-data.org"
+            if name in provider_teams
+            else "Local roster fallback"
+        )
+    )
+    return teams
+
+
+def flatten_football_data_matches(raw_matches):
+    """Normalize football-data.org v4 match resources."""
+    status_map = {
+        "FINISHED": "FT",
+        "IN_PLAY": "LIVE",
+        "PAUSED": "HT",
+        "TIMED": "NS",
+        "SCHEDULED": "NS",
+        "POSTPONED": "PST",
+        "SUSPENDED": "SUSP",
+        "CANCELLED": "CANC",
+    }
+    rows = []
+    for item in raw_matches:
+        score = item.get("score", {}) or {}
+        full_time = score.get("fullTime", {}) or {}
+        penalties = score.get("penalties", {}) or {}
+        home = item.get("homeTeam", {}) or {}
+        away = item.get("awayTeam", {}) or {}
+        rows.append(
+            {
+                "fixture_id": item.get("id"),
+                "date": item.get("utcDate"),
+                "round": item.get("stage"),
+                "group": item.get("group") or item.get("stage", "TBD"),
+                "team_home": canonical_team_name(home.get("name")),
+                "team_away": canonical_team_name(away.get("name")),
+                "team_home_id": home.get("id"),
+                "team_away_id": away.get("id"),
+                "goals_home": full_time.get("home", full_time.get("homeTeam")),
+                "goals_away": full_time.get("away", full_time.get("awayTeam")),
+                "penalty_home": penalties.get("home", penalties.get("homeTeam")),
+                "penalty_away": penalties.get("away", penalties.get("awayTeam")),
+                "venue_city": item.get("venue") or "Unknown",
+                "venue_country": "Unknown",
+                "match_status": status_map.get(
+                    item.get("status"), item.get("status", "TBD")
+                ),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def flatten_football_data_standings(raw_standings):
+    """Normalize football-data.org standing tables."""
+    rows = []
+    for standing in raw_standings:
+        if standing.get("type") not in {None, "TOTAL"}:
+            continue
+        for row in standing.get("table", []) or []:
+            team = row.get("team", {}) or {}
+            rows.append(
+                {
+                    "team": canonical_team_name(team.get("name")),
+                    "team_id": team.get("id"),
+                    "group": standing.get("group", "TBD"),
+                    "rank": row.get("position"),
+                    "points": row.get("points", 0),
+                    "goals_for": row.get("goalsFor", 0),
+                    "goals_against": row.get("goalsAgainst", 0),
+                    "goal_difference": row.get("goalDifference", 0),
+                    "form": row.get("form", ""),
+                }
+            )
+    return pd.DataFrame(rows)
+
+
+def flatten_football_data_odds(raw_matches):
+    """Normalize and de-vig available football-data.org match odds."""
+    rows = []
+    for item in raw_matches:
+        odds = item.get("odds", {}) or {}
+        prices = [
+            pd.to_numeric(odds.get("homeWin"), errors="coerce"),
+            pd.to_numeric(odds.get("draw"), errors="coerce"),
+            pd.to_numeric(odds.get("awayWin"), errors="coerce"),
+        ]
+        implied = [1 / price if pd.notna(price) and price > 1 else None for price in prices]
+        total = sum(value for value in implied if value is not None)
+        rows.append(
+            {
+                "fixture_id": item.get("id"),
+                "bookmakers_count": 1 if total else 0,
+                "market_home_probability": implied[0] / total if implied[0] and total else None,
+                "market_draw_probability": implied[1] / total if implied[1] and total else None,
+                "market_away_probability": implied[2] / total if implied[2] and total else None,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def flatten_football_data_scorers(raw_scorers):
+    """Preserve tournament scorer and assist totals."""
+    rows = []
+    for item in raw_scorers:
+        player = item.get("player", {}) or {}
+        team = item.get("team", {}) or {}
+        rows.append(
+            {
+                "team": canonical_team_name(team.get("name")),
+                "team_id": team.get("id"),
+                "player": player.get("name"),
+                "player_id": player.get("id"),
+                "position": player.get("position"),
+                "goals": item.get("goals", 0) or 0,
+                "assists": item.get("assists", 0) or 0,
+                "penalties": item.get("penalties", 0) or 0,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
 def flatten_standings(raw_standings):
     """Normalize standings where available."""
     rows = []
@@ -253,17 +388,207 @@ def flatten_standings(raw_standings):
 
 
 def flatten_odds(raw_odds):
-    """Save raw-ish odds summary when the endpoint is available."""
+    """Normalize match-winner prices and remove each book's overround."""
     rows = []
     for item in raw_odds:
         fixture = item.get("fixture", {})
+        normalized = []
+        for bookmaker in item.get("bookmakers", []) or []:
+            for bet in bookmaker.get("bets", []) or []:
+                if str(bet.get("name", "")).lower() != "match winner":
+                    continue
+                prices = {
+                    str(value.get("value", "")).lower(): pd.to_numeric(
+                        value.get("odd"), errors="coerce"
+                    )
+                    for value in bet.get("values", []) or []
+                }
+                implied = {
+                    outcome: 1 / price
+                    for outcome, price in prices.items()
+                    if pd.notna(price) and price > 1
+                }
+                total = sum(implied.values())
+                if total > 0:
+                    normalized.append(
+                        {
+                            outcome: probability / total
+                            for outcome, probability in implied.items()
+                        }
+                    )
         rows.append(
             {
                 "fixture_id": fixture.get("id"),
                 "bookmakers_count": len(item.get("bookmakers", []) or []),
+                "market_home_probability": (
+                    sum(row.get("home", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
+                "market_draw_probability": (
+                    sum(row.get("draw", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
+                "market_away_probability": (
+                    sum(row.get("away", 0) for row in normalized) / len(normalized)
+                    if normalized else None
+                ),
             }
         )
     return pd.DataFrame(rows)
+
+
+def flatten_player_stats(raw_fixture_details):
+    """Return one normalized row per player appearance."""
+    rows = []
+    for item in raw_fixture_details:
+        fixture_id = (item.get("fixture") or {}).get("id")
+        for team_block in item.get("players", []) or []:
+            team = team_block.get("team", {}) or {}
+            for entry in team_block.get("players", []) or []:
+                player = entry.get("player", {}) or {}
+                for stats in entry.get("statistics", []) or []:
+                    games = stats.get("games", {}) or {}
+                    goals = stats.get("goals", {}) or {}
+                    shots = stats.get("shots", {}) or {}
+                    passes = stats.get("passes", {}) or {}
+                    tackles = stats.get("tackles", {}) or {}
+                    rows.append(
+                        {
+                            "fixture_id": fixture_id,
+                            "team": team.get("name"),
+                            "team_id": team.get("id"),
+                            "player": player.get("name"),
+                            "player_id": player.get("id"),
+                            "position": games.get("position"),
+                            "minutes": pd.to_numeric(
+                                games.get("minutes"), errors="coerce"
+                            ),
+                            "rating": pd.to_numeric(
+                                games.get("rating"), errors="coerce"
+                            ),
+                            "goals": goals.get("total", 0) or 0,
+                            "assists": goals.get("assists", 0) or 0,
+                            "goals_conceded": goals.get("conceded", 0) or 0,
+                            "saves": goals.get("saves", 0) or 0,
+                            "shots": shots.get("total", 0) or 0,
+                            "shots_on_target": shots.get("on", 0) or 0,
+                            "key_passes": passes.get("key", 0) or 0,
+                            "tackles": tackles.get("total", 0) or 0,
+                        }
+                    )
+    return pd.DataFrame(rows)
+
+
+def flatten_availability(raw_injuries):
+    """Normalize injury and suspension reports."""
+    rows = []
+    for item in raw_injuries:
+        player = item.get("player", {}) or {}
+        team = item.get("team", {}) or {}
+        fixture = item.get("fixture", {}) or {}
+        reason = str(player.get("reason") or item.get("type") or "Unknown")
+        rows.append(
+            {
+                "fixture_id": fixture.get("id"),
+                "team": team.get("name"),
+                "team_id": team.get("id"),
+                "player": player.get("name"),
+                "player_id": player.get("id"),
+                "reason": reason,
+                "availability_type": item.get("type", "Unknown"),
+                "is_suspension": "suspend" in reason.lower(),
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def aggregate_player_features(player_stats):
+    """Create bounded team features from player-match production."""
+    if player_stats.empty:
+        return pd.DataFrame()
+    stats = player_stats.copy()
+    stats["minutes"] = pd.to_numeric(stats["minutes"], errors="coerce").fillna(0)
+    stats["rating"] = pd.to_numeric(stats["rating"], errors="coerce")
+    stats["weighted_rating"] = stats["rating"] * stats["minutes"]
+    team_rows = []
+    for (team_id, team), group in stats.groupby(["team_id", "team"], dropna=False):
+        minutes = group["minutes"].sum()
+        rating = (
+            group["weighted_rating"].sum() / minutes if minutes else 6.5
+        )
+        goalkeepers = group.loc[group["position"] == "G"]
+        saves = pd.to_numeric(goalkeepers["saves"], errors="coerce").fillna(0).sum()
+        conceded = pd.to_numeric(
+            goalkeepers["goals_conceded"], errors="coerce"
+        ).fillna(0).sum()
+        save_rate = saves / (saves + conceded) if saves + conceded else 0.65
+        team_rows.append(
+            {
+                "team_id": team_id,
+                "team": team,
+                "expected_lineup_score": max(-2, min(2, (rating - 6.5) * 2)),
+                "goalkeeper_score": max(-1.5, min(1.5, (save_rate - 0.65) * 5)),
+                "player_minutes_observed": minutes,
+            }
+        )
+    return pd.DataFrame(team_rows)
+
+
+def merge_advanced_live_features(
+    teams_df, fixtures_df, odds_df, player_stats_df, availability_df
+):
+    """Merge market, player, and availability signals into model rows."""
+    if teams_df.empty:
+        return teams_df
+    live = teams_df.copy()
+    player_features = aggregate_player_features(player_stats_df)
+    if not player_features.empty:
+        live = live.drop(
+            columns=["expected_lineup_score", "goalkeeper_score"], errors="ignore"
+        ).merge(
+            player_features[
+                ["team_id", "expected_lineup_score", "goalkeeper_score"]
+            ],
+            on="team_id",
+            how="left",
+        )
+
+    if not availability_df.empty:
+        availability = availability_df.groupby("team_id").agg(
+            injury_impact=("is_suspension", lambda values: min(2, (~values).sum() * 0.35)),
+            suspension_impact=("is_suspension", lambda values: min(2, values.sum() * 0.5)),
+        ).reset_index()
+        live = live.drop(
+            columns=["injury_impact", "suspension_impact"], errors="ignore"
+        ).merge(availability, on="team_id", how="left")
+
+    if not odds_df.empty and not fixtures_df.empty:
+        market = fixtures_df[
+            ["fixture_id", "team_home_id", "team_away_id", "match_status"]
+        ].merge(odds_df, on="fixture_id", how="inner")
+        market = market.loc[~market["match_status"].isin({"FT", "AET", "PEN"})]
+        market_rows = []
+        for row in market.itertuples(index=False):
+            market_rows.extend(
+                [
+                    {
+                        "team_id": row.team_home_id,
+                        "market_implied_prob": row.market_home_probability,
+                    },
+                    {
+                        "team_id": row.team_away_id,
+                        "market_implied_prob": row.market_away_probability,
+                    },
+                ]
+            )
+        if market_rows:
+            latest_market = pd.DataFrame(market_rows).dropna().drop_duplicates(
+                "team_id", keep="last"
+            )
+            live = live.drop(columns=["market_implied_prob"], errors="ignore").merge(
+                latest_market, on="team_id", how="left"
+            )
+    return live
 
 
 def flatten_match_stats(raw_stats):
@@ -364,7 +689,7 @@ def build_fixture_lookup(fixtures_df):
 
 
 def save_live_data(force=False):
-    """Fetch API-Football data and save normalized local CSV snapshots."""
+    """Fetch football-data.org data and save normalized local CSV snapshots."""
     has_cached_data = live_cache_exists()
 
     if has_cached_data and cache_is_fresh() and not force:
@@ -372,8 +697,11 @@ def save_live_data(force=False):
 
     if not has_api_key():
         if has_cached_data:
-            return True, "Using cached live API CSV files; API_FOOTBALL_KEY is missing."
-        return False, "Missing API_FOOTBALL_KEY. Using sample CSV data."
+            return True, (
+                "Using cached live API CSV files; "
+                "FOOTBALL_DATA_API_KEY is missing."
+            )
+        return False, "Missing FOOTBALL_DATA_API_KEY. Using sample CSV data."
 
     if refresh_is_on_cooldown() and not force:
         minutes = minutes_until_retry()
@@ -388,47 +716,47 @@ def save_live_data(force=False):
     mark_cache_attempt()
 
     try:
-        client = APIFootballClient()
-        raw_teams = client.teams(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
-        raw_fixtures = client.fixtures(API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
+        client = FootballDataClient()
+        raw_teams = client.teams(
+            FOOTBALL_DATA_COMPETITION, FOOTBALL_DATA_SEASON
+        )
+        raw_matches = client.matches(
+            FOOTBALL_DATA_COMPETITION, FOOTBALL_DATA_SEASON
+        )
         raw_standings = safe_get(
-            client.standings, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON
+            client.standings,
+            FOOTBALL_DATA_COMPETITION,
+            FOOTBALL_DATA_SEASON,
         )
-        raw_odds = safe_get(client.odds, API_FOOTBALL_LEAGUE, API_FOOTBALL_SEASON)
-        raw_countries = safe_get(client.countries)
+        raw_scorers = safe_get(
+            client.scorers,
+            FOOTBALL_DATA_COMPETITION,
+            FOOTBALL_DATA_SEASON,
+        )
 
-        fixtures_df = flatten_fixtures(raw_fixtures)
-        standings_df = flatten_standings(raw_standings)
-        countries_df = flatten_countries(raw_countries)
+        fixtures_df = flatten_football_data_matches(raw_matches)
+        standings_df = flatten_football_data_standings(raw_standings)
+        countries_df = pd.DataFrame()
         teams_df = merge_live_model_data(
-            flatten_teams(raw_teams), standings_df, fixtures_df
+            flatten_football_data_teams(raw_teams),
+            standings_df,
+            fixtures_df,
         )
-        used_country_fallback = False
-        if teams_df.empty:
-            teams_df = build_country_fallback_teams(countries_df)
-            used_country_fallback = True
-            if teams_df.empty:
-                raise ValueError(
-                    "API-Football returned no teams for "
-                    f"league={API_FOOTBALL_LEAGUE}, season={API_FOOTBALL_SEASON}, "
-                    "and the /countries fallback was unavailable."
-                )
-        odds_df = flatten_odds(raw_odds)
-
-        stats_frames = []
-        fixture_ids = fixtures_df.get(
-            "fixture_id", pd.Series(dtype=object)
-        ).dropna().head(25)
-        for fixture_id in fixture_ids:
-            stats = safe_get(client.statistics, fixture_id)
-            if stats:
-                frame = flatten_match_stats(stats)
-                frame["fixture_id"] = fixture_id
-                stats_frames.append(frame)
-        stats_df = (
-            pd.concat(stats_frames, ignore_index=True)
-            if stats_frames
-            else pd.DataFrame()
+        if not raw_teams and fixtures_df.empty:
+            raise ValueError(
+                "football-data.org returned no World Cup 2026 data. "
+                "Check plan coverage for competition WC."
+            )
+        odds_df = flatten_football_data_odds(raw_matches)
+        player_stats_df = flatten_football_data_scorers(raw_scorers)
+        stats_df = pd.DataFrame()
+        availability_df = pd.DataFrame()
+        teams_df = merge_advanced_live_features(
+            teams_df,
+            fixtures_df,
+            odds_df,
+            pd.DataFrame(),
+            availability_df,
         )
 
         LIVE_TEAMS_CSV.parent.mkdir(parents=True, exist_ok=True)
@@ -436,6 +764,8 @@ def save_live_data(force=False):
         fixtures_df.to_csv(LIVE_FIXTURES_CSV, index=False)
         standings_df.to_csv(LIVE_STANDINGS_CSV, index=False)
         stats_df.to_csv(LIVE_MATCH_STATS_CSV, index=False)
+        player_stats_df.to_csv(LIVE_PLAYER_STATS_CSV, index=False)
+        availability_df.to_csv(LIVE_AVAILABILITY_CSV, index=False)
         odds_df.to_csv(LIVE_ODDS_CSV, index=False)
         countries_df.to_csv(LIVE_COUNTRIES_CSV, index=False)
         mark_cache_updated()
@@ -445,9 +775,7 @@ def save_live_data(force=False):
             return True, "API refresh failed; using cached live API CSV files."
         return False, "API refresh failed. Using sample CSV data."
 
-    if used_country_fallback:
-        return True, "Updated live API CSV files from API-Football /countries fallback."
-    return True, "Updated live API CSV files."
+    return True, "Updated live API CSV files from football-data.org."
 
 
 def load_live_model_data(force=False):
@@ -481,6 +809,73 @@ def load_cached_fixtures():
         return pd.read_csv(LIVE_FIXTURES_CSV)
     except (EmptyDataError, OSError):
         return pd.DataFrame()
+
+
+def load_bundled_world_cup_fixtures():
+    """Convert completed 2026 results into the simulator fixture schema."""
+    try:
+        results = pd.read_csv(HISTORICAL_RESULTS_PATH)
+    except (EmptyDataError, OSError):
+        return pd.DataFrame()
+
+    teams = load_sample_data()
+    group_by_team = teams.set_index("team")["group"].to_dict()
+    results["home_team"] = results["home_team"].map(canonical_team_name)
+    results["away_team"] = results["away_team"].map(canonical_team_name)
+    completed = results.loc[
+        (results["tournament"] == "FIFA World Cup")
+        & results["date"].astype(str).str.startswith("2026-")
+        & results["home_score"].notna()
+        & results["away_score"].notna()
+        & results["home_team"].isin(group_by_team)
+        & results["away_team"].isin(group_by_team)
+    ].copy()
+    completed = completed.loc[
+        completed["home_team"].map(group_by_team)
+        == completed["away_team"].map(group_by_team)
+    ]
+    if completed.empty:
+        return pd.DataFrame()
+
+    return pd.DataFrame(
+        {
+            "date": completed["date"],
+            "round": "Group Stage",
+            "group": completed["home_team"].map(group_by_team),
+            "team_home": completed["home_team"],
+            "team_away": completed["away_team"],
+            "goals_home": completed["home_score"].astype(int),
+            "goals_away": completed["away_score"].astype(int),
+            "match_status": "FT",
+            "data_source": "Bundled completed results",
+        }
+    )
+
+
+def load_available_fixtures():
+    """Combine bundled completed results with any cached provider fixtures."""
+    bundled = load_bundled_world_cup_fixtures()
+    cached = load_cached_fixtures()
+    if cached.empty:
+        return bundled
+    if bundled.empty:
+        return cached
+
+    combined = pd.concat([bundled, cached], ignore_index=True, sort=False)
+    combined["_match_key"] = combined.apply(
+        lambda row: "|".join(
+            sorted(
+                (
+                    canonical_team_name(row.get("team_home")),
+                    canonical_team_name(row.get("team_away")),
+                )
+            )
+        ),
+        axis=1,
+    )
+    return combined.drop_duplicates("_match_key", keep="last").drop(
+        columns="_match_key"
+    )
 
 
 if __name__ == "__main__":

@@ -324,8 +324,8 @@ def enrich_with_historical_features(teams):
     return enriched
 
 
-def historical_match_probabilities(team_a, team_b):
-    """Predict regulation home/draw/away probabilities for a neutral match."""
+def historical_match_probabilities(team_a, team_b, home_advantage=0):
+    """Predict regulation probabilities with optional match-site advantage."""
     bundle = load_historical_model()
     features = pd.DataFrame(
         [
@@ -345,7 +345,7 @@ def historical_match_probabilities(team_a, team_b):
                     + team_b.get("historical_defense", 1.25)
                 )
                 / 4,
-                "home_advantage": 0,
+                "home_advantage": home_advantage,
             }
         ]
     )

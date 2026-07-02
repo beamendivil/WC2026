@@ -30,6 +30,14 @@ class HistoricalModelTests(unittest.TestCase):
         self.assertTrue(self.teams["fifa_points"].notna().all())
         self.assertEqual(set(self.teams["ranking_date"]), {"2026-06-11"})
 
+    def test_current_tournament_snapshot_enriches_team_form(self):
+        mexico = self.teams.loc["Mexico"]
+
+        self.assertEqual(mexico["current_matches_played"], 4)
+        self.assertEqual(mexico["current_points"], 12)
+        self.assertEqual(mexico["current_goal_difference"], 8)
+        self.assertEqual(mexico["last_five_form"], "W-W-W-W-W")
+
     def test_probabilities_are_complete_and_bounded(self):
         argentina = self.teams.loc["Argentina"]
         cabo_verde = self.teams.loc["Cabo Verde"]
@@ -67,6 +75,33 @@ class HistoricalModelTests(unittest.TestCase):
         )
 
         self.assertLess(updated["attack"], 2)
+
+    def test_host_context_improves_mexico_probability(self):
+        mexico = self.teams.loc["Mexico"].copy()
+        ecuador = self.teams.loc["Ecuador"].copy()
+        hosted = match_probabilities(mexico, ecuador)["team_a"]
+        mexico["host_advantage"] = 0
+        neutral = match_probabilities(mexico, ecuador)["team_a"]
+
+        self.assertGreater(hosted, neutral)
+
+    def test_probability_is_independent_of_pairing_display_order(self):
+        mexico = self.teams.loc["Mexico"]
+        ecuador = self.teams.loc["Ecuador"]
+        mexico_first = advancement_probability(mexico, ecuador)
+        ecuador_first = advancement_probability(ecuador, mexico)
+
+        self.assertAlmostEqual(mexico_first, 1 - ecuador_first)
+
+    def test_live_inputs_adjust_but_do_not_overwhelm_base_probability(self):
+        mexico = self.teams.loc["Mexico"].copy()
+        ecuador = self.teams.loc["Ecuador"].copy()
+        baseline = match_probabilities(mexico, ecuador)["team_a"]
+        mexico["market_component"] += 4
+        updated = match_probabilities(mexico, ecuador)["team_a"]
+
+        self.assertGreater(updated, baseline)
+        self.assertLess(updated - baseline, 0.15)
 
 
 if __name__ == "__main__":

@@ -4,7 +4,12 @@ import numpy as np
 import pandas as pd
 
 from src.bracket import CONFIRMED_GROUP_POSITIONS
-from src.bracket import CONFIRMED_ROUND_OF_32, CONFIRMED_THIRD_PLACE_QUALIFIERS
+from src.bracket import (
+    CONFIRMED_MATCH_CONTEXTS,
+    CONFIRMED_KNOCKOUT_WINNERS,
+    CONFIRMED_ROUND_OF_32,
+    CONFIRMED_THIRD_PLACE_QUALIFIERS,
+)
 from src.bracket import KNOCKOUT_PATHS, build_round_of_32
 from src.model import advancement_probability, estimate_goals, predict_match_winner
 
@@ -20,6 +25,33 @@ KNOCKOUT_ROUND_NAMES = {
 COMPLETED_MATCH_STATUSES = {"FT", "AET", "PEN"}
 
 
+def apply_match_context(team_a, team_b, match_number):
+    """Attach bounded venue and altitude effects for a specific fixture."""
+    context = CONFIRMED_MATCH_CONTEXTS.get(match_number)
+    if not context:
+        return team_a, team_b
+
+    contextualized = []
+    altitude_ratio = min(max(float(context.get("altitude_m", 0)) / 2500, 0), 1)
+    for team in (team_a, team_b):
+        adjusted = team.copy()
+        team_name = team.get("team", getattr(team, "name", None))
+        is_home_team = team_name == context.get("home_team")
+        adjusted["stadium"] = context.get("stadium", "Unknown")
+        adjusted["venue_city"] = context.get("city", "Unknown")
+        adjusted["venue_country"] = context.get("country", "Unknown")
+        adjusted["altitude_m"] = context.get("altitude_m", 0)
+        # The host receives familiarity plus altitude acclimation. The visitor
+        # receives a smaller, bounded altitude-strain penalty.
+        adjusted["match_context_component"] = (
+            0.75 + 1.5 * altitude_ratio
+            if is_home_team
+            else -0.75 * altitude_ratio
+        )
+        contextualized.append(adjusted)
+    return tuple(contextualized)
+
+
 def simulate_group_match(team_a, team_b):
     """Simulate a group match with points, goals, and possible draws."""
     winner, result_type = predict_match_winner(team_a, team_b, allow_draw=True)
@@ -28,14 +60,20 @@ def simulate_group_match(team_a, team_b):
         goals = np.random.choice([0, 1, 2], p=[0.25, 0.55, 0.20])
         return goals, goals, None
 
-    goals_a = estimate_goals(team_a, team_b)
-    goals_b = estimate_goals(team_b, team_a)
-
-    # Force the scoreline to match the simulated winner.
-    if winner == team_a["team"] and goals_a <= goals_b:
-        goals_a = goals_b + 1
-    elif winner == team_b["team"] and goals_b <= goals_a:
-        goals_b = goals_a + 1
+    # Sample from the scoring model conditional on the already sampled outcome.
+    # Rejection sampling preserves plausible margins instead of rewriting a draw
+    # into an artificial one-goal victory.
+    for _ in range(100):
+        goals_a = estimate_goals(team_a, team_b)
+        goals_b = estimate_goals(team_b, team_a)
+        if winner == team_a["team"] and goals_a > goals_b:
+            break
+        if winner == team_b["team"] and goals_b > goals_a:
+            break
+    else:
+        goals_a, goals_b = (
+            (1, 0) if winner == team_a["team"] else (0, 1)
+        )
 
     return goals_a, goals_b, winner
 
@@ -108,6 +146,42 @@ def find_completed_result(fixtures, team_a, team_b):
     if fixture["team_home"] == team_a["team"]:
         return int(goals_home), int(goals_away)
     return int(goals_away), int(goals_home)
+
+
+def find_completed_knockout_winner(fixtures, team_a, team_b):
+    """Return the winner of a completed knockout fixture, including penalties."""
+    if fixtures is None or fixtures.empty:
+        return None
+    required = {"team_home", "team_away", "match_status", "goals_home", "goals_away"}
+    if not required.issubset(fixtures.columns):
+        return None
+    names = {team_a["team"], team_b["team"]}
+    matches = fixtures.loc[
+        fixtures["team_home"].isin(names) & fixtures["team_away"].isin(names)
+    ]
+    matches = matches.loc[matches["match_status"].isin(COMPLETED_MATCH_STATUSES)]
+    if matches.empty:
+        return None
+    fixture = matches.iloc[-1]
+    home_goals = pd.to_numeric(fixture["goals_home"], errors="coerce")
+    away_goals = pd.to_numeric(fixture["goals_away"], errors="coerce")
+    if pd.isna(home_goals) or pd.isna(away_goals):
+        return None
+    if home_goals > away_goals:
+        return fixture["team_home"]
+    if away_goals > home_goals:
+        return fixture["team_away"]
+    home_penalties = pd.to_numeric(fixture.get("penalty_home"), errors="coerce")
+    away_penalties = pd.to_numeric(fixture.get("penalty_away"), errors="coerce")
+    if pd.isna(home_penalties) or pd.isna(away_penalties):
+        return None
+    if home_penalties == away_penalties:
+        return None
+    return (
+        fixture["team_home"]
+        if home_penalties > away_penalties
+        else fixture["team_away"]
+    )
 
 
 def simulate_group_stage(teams, fixtures=None):
@@ -260,7 +334,7 @@ def seed_knockout_teams(qualified_teams):
     return pd.DataFrame(bracket_order).reset_index(drop=True)
 
 
-def simulate_official_bracket(qualified_teams, all_teams=None):
+def simulate_official_bracket(qualified_teams, all_teams=None, fixtures=None):
     """Simulate FIFA's fixed knockout match-number progression."""
     team_pool = all_teams if all_teams is not None else qualified_teams
     route_difficulty = {
@@ -270,8 +344,21 @@ def simulate_official_bracket(qualified_teams, all_teams=None):
     pairings = []
 
     def play_match(round_name, match_number, team_a, team_b):
+        team_a, team_b = apply_match_context(team_a, team_b, match_number)
         probability_a = advancement_probability(team_a, team_b)
-        winner_name, _ = predict_match_winner(team_a, team_b, allow_draw=False)
+        winner_name = find_completed_knockout_winner(
+            fixtures, team_a, team_b
+        )
+        if winner_name is None:
+            winner_name = CONFIRMED_KNOCKOUT_WINNERS.get(match_number)
+        if winner_name is None:
+            winner_name, _ = predict_match_winner(
+                team_a, team_b, allow_draw=False
+            )
+        elif winner_name not in {team_a["team"], team_b["team"]}:
+            raise ValueError(
+                f"Confirmed winner {winner_name} did not play match {match_number}."
+            )
         winner = team_a if winner_name == team_a["team"] else team_b
         route_difficulty[team_a["team"]] += team_b["strength_score"]
         route_difficulty[team_b["team"]] += team_a["strength_score"]
@@ -321,7 +408,7 @@ def simulate_tournament(teams, fixtures=None):
     """Run one full tournament and return champion details."""
     qualified_teams = simulate_group_stage(teams, fixtures)
     _, champion, champion_route_difficulty = simulate_official_bracket(
-        qualified_teams, teams
+        qualified_teams, teams, fixtures
     )
     return {
         "champion": champion,
@@ -332,7 +419,9 @@ def simulate_tournament(teams, fixtures=None):
 def predict_tournament_bracket(teams, fixtures=None):
     """Project one tournament and retain every knockout pairing."""
     qualified_teams = simulate_group_stage(teams, fixtures)
-    pairings, champion, _ = simulate_official_bracket(qualified_teams, teams)
+    pairings, champion, _ = simulate_official_bracket(
+        qualified_teams, teams, fixtures
+    )
     return pairings, champion
 
 
@@ -407,6 +496,39 @@ def run_pairing_simulations(
         }
         for (round_name, team_a, team_b), count in pairing_counts.items()
     ]
-    return pd.DataFrame(rows).sort_values(
+    probabilities = pd.DataFrame(rows).sort_values(
+        ["round", "pairing_probability"], ascending=[True, False]
+    )
+    return enforce_confirmed_round_of_32(probabilities, number_of_simulations)
+
+
+def enforce_confirmed_round_of_32(pairing_probabilities, number_of_simulations):
+    """Guarantee confirmed fixtures cannot coexist with simulated alternatives."""
+    confirmed_teams = {
+        team
+        for pairing in CONFIRMED_ROUND_OF_32.values()
+        for team in pairing
+    }
+    is_round_of_32 = pairing_probabilities["round"] == "Round of 32"
+    involves_confirmed_team = pairing_probabilities["team_a"].isin(
+        confirmed_teams
+    ) | pairing_probabilities["team_b"].isin(confirmed_teams)
+    probabilities = pairing_probabilities.loc[
+        ~(is_round_of_32 & involves_confirmed_team)
+    ].copy()
+
+    confirmed_rows = pd.DataFrame(
+        [
+            {
+                "round": "Round of 32",
+                "team_a": min(team_a, team_b),
+                "team_b": max(team_a, team_b),
+                "pairing_probability": 100.0,
+                "simulations": number_of_simulations,
+            }
+            for team_a, team_b in CONFIRMED_ROUND_OF_32.values()
+        ]
+    )
+    return pd.concat([probabilities, confirmed_rows], ignore_index=True).sort_values(
         ["round", "pairing_probability"], ascending=[True, False]
     )

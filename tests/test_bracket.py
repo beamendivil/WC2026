@@ -3,12 +3,24 @@ import unittest
 
 import pandas as pd
 
-from src.bracket import CONFIRMED_GROUP_POSITIONS, CONFIRMED_ROUND_OF_32
+from src.bracket import (
+    CONFIRMED_MATCH_CONTEXTS,
+    CONFIRMED_GROUP_POSITIONS,
+    CONFIRMED_KNOCKOUT_WINNERS,
+    CONFIRMED_ROUND_OF_32,
+)
 from src.bracket import CONFIRMED_THIRD_PLACE_QUALIFIERS
-from src.bracket import build_round_of_32, load_third_place_mapping
+from src.bracket import (
+    build_round_of_32,
+    confirmed_knockout_pairings,
+    load_third_place_mapping,
+)
 from src.data_loader import add_safe_defaults, load_sample_data
 from src.features import add_strength_scores
 from src.simulator import predict_tournament_bracket, simulate_group_stage
+from src.simulator import apply_match_context, enforce_confirmed_round_of_32
+from src.model import advancement_probability
+from src.update_data import load_bundled_world_cup_fixtures
 
 
 def sample_teams():
@@ -84,6 +96,20 @@ class OfficialBracketTests(unittest.TestCase):
             [["Mexico", 9], ["South Africa", 6]],
         )
 
+    def test_bundled_world_cup_results_feed_group_simulation(self):
+        fixtures = load_bundled_world_cup_fixtures()
+        colombia_portugal = fixtures.loc[
+            (fixtures["team_home"] == "Colombia")
+            & (fixtures["team_away"] == "Portugal")
+        ].iloc[0]
+
+        self.assertGreaterEqual(len(fixtures), 46)
+        self.assertEqual(colombia_portugal["match_status"], "FT")
+        self.assertEqual(
+            (colombia_portugal["goals_home"], colombia_portugal["goals_away"]),
+            (0, 0),
+        )
+
     def test_confirmed_round_of_32_pairings_override_simulation(self):
         pairings, _ = predict_tournament_bracket(sample_teams())
         round_of_32 = pairings.loc[pairings["round"] == "Round of 32"].set_index(
@@ -96,6 +122,125 @@ class OfficialBracketTests(unittest.TestCase):
                 round_of_32.loc[match_number, "team_b"],
             )
             self.assertEqual(actual_teams, expected_teams)
+
+    def test_mexico_ecuador_pairing_is_locked(self):
+        self.assertEqual(CONFIRMED_ROUND_OF_32[79], ("Mexico", "Ecuador"))
+
+    def test_completed_knockout_winner_advances_in_every_simulation(self):
+        expected_winners = {
+            73: "Canada",
+            74: "Paraguay",
+            75: "Morocco",
+            76: "Brazil",
+            77: "France",
+            78: "Norway",
+            79: "Mexico",
+            82: "Belgium",
+            80: "England",
+        }
+        self.assertEqual(CONFIRMED_KNOCKOUT_WINNERS, expected_winners)
+
+        for _ in range(20):
+            pairings, _ = predict_tournament_bracket(sample_teams())
+            round_of_16 = pairings.set_index("match")
+            self.assertEqual(round_of_16.loc[89, "team_b"], "France")
+            self.assertEqual(round_of_16.loc[89, "team_a"], "Paraguay")
+            self.assertEqual(round_of_16.loc[90, "team_a"], "Canada")
+            self.assertEqual(round_of_16.loc[90, "team_b"], "Morocco")
+            self.assertEqual(round_of_16.loc[91, "team_a"], "Brazil")
+            self.assertEqual(round_of_16.loc[91, "team_b"], "Norway")
+            self.assertEqual(round_of_16.loc[92, "team_a"], "Mexico")
+            self.assertEqual(round_of_16.loc[92, "team_b"], "England")
+            self.assertEqual(round_of_16.loc[94, "team_b"], "Belgium")
+
+    def test_live_match_is_not_prematurely_locked(self):
+        self.assertNotIn(81, CONFIRMED_KNOCKOUT_WINNERS)
+
+    def test_round_of_16_matchups_with_completed_feeders_are_confirmed(self):
+        confirmed = confirmed_knockout_pairings()
+
+        self.assertEqual(
+            confirmed[90]["teams"], frozenset(("Canada", "Morocco"))
+        )
+        self.assertEqual(
+            confirmed[89]["teams"], frozenset(("Paraguay", "France"))
+        )
+        self.assertEqual(
+            confirmed[91]["teams"], frozenset(("Brazil", "Norway"))
+        )
+        self.assertEqual(
+            confirmed[92]["teams"], frozenset(("Mexico", "England"))
+        )
+        self.assertNotIn(94, confirmed)
+
+    def test_azteca_context_boosts_mexico_against_england(self):
+        teams = sample_teams().set_index("team")
+        mexico = teams.loc["Mexico"]
+        england = teams.loc["England"]
+        baseline = advancement_probability(mexico, england)
+
+        mexico_at_azteca, england_at_azteca = apply_match_context(
+            mexico, england, 92
+        )
+        contextualized = advancement_probability(
+            mexico_at_azteca, england_at_azteca
+        )
+
+        self.assertIn("Estadio Azteca", mexico_at_azteca["stadium"])
+        self.assertEqual(mexico_at_azteca["altitude_m"], 2240)
+        self.assertGreater(contextualized, baseline)
+
+    def test_every_knockout_match_has_an_official_venue(self):
+        self.assertEqual(set(CONFIRMED_MATCH_CONTEXTS), set(range(73, 105)))
+
+    def test_completed_fixture_automatically_sets_knockout_winner(self):
+        fixtures = pd.DataFrame(
+            [
+                {
+                    "team_home": "South Africa",
+                    "team_away": "Canada",
+                    "match_status": "PEN",
+                    "goals_home": 1,
+                    "goals_away": 1,
+                    "penalty_home": 3,
+                    "penalty_away": 4,
+                }
+            ]
+        )
+
+        pairings, _ = predict_tournament_bracket(sample_teams(), fixtures)
+        round_of_16 = pairings.set_index("match")
+        self.assertEqual(round_of_16.loc[90, "team_a"], "Canada")
+
+    def test_confirmed_pairing_removes_stale_alternatives(self):
+        stale = pd.DataFrame(
+            [
+                ["Round of 32", "Mexico", "Uruguay", 70.0, 700],
+                ["Round of 32", "Ecuador", "Belgium", 30.0, 300],
+            ],
+            columns=[
+                "round",
+                "team_a",
+                "team_b",
+                "pairing_probability",
+                "simulations",
+            ],
+        )
+        corrected = enforce_confirmed_round_of_32(stale, 1000)
+        mexico_matches = corrected.loc[
+            (corrected["round"] == "Round of 32")
+            & (
+                (corrected["team_a"] == "Mexico")
+                | (corrected["team_b"] == "Mexico")
+            )
+        ]
+
+        self.assertEqual(len(mexico_matches), 1)
+        self.assertEqual(
+            set(mexico_matches.iloc[0][["team_a", "team_b"]]),
+            {"Mexico", "Ecuador"},
+        )
+        self.assertEqual(mexico_matches.iloc[0]["pairing_probability"], 100)
 
     def test_confirmed_group_positions_condition_simulation(self):
         qualified = simulate_group_stage(sample_teams())

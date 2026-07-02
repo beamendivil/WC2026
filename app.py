@@ -1,10 +1,19 @@
 from datetime import datetime
+import hashlib
+import json
 
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 
 from src.api_config import LATEST_PAIRING_PREDICTIONS_CSV
+from src.bracket import (
+    CONFIRMED_KNOCKOUT_WINNERS,
+    CONFIRMED_MATCH_CONTEXTS,
+    CONFIRMED_ROUND_OF_32,
+)
+from src.bracket import confirmed_knockout_pairings
+from src.bracket import knockout_match_number
 from src.data_loader import add_safe_defaults, load_sample_data, validate_team_data
 from src.explanations import find_biggest_factor
 from src.features import add_strength_scores
@@ -12,10 +21,12 @@ from src.historical_model import load_historical_model
 from src.model import advancement_probability, match_probabilities
 from src.api_config import has_api_key
 from src.simulator import (
+    apply_match_context,
+    enforce_confirmed_round_of_32,
     run_pairing_simulations,
     run_simulations,
 )
-from src.update_data import load_cached_fixtures, load_cached_model_data
+from src.update_data import load_available_fixtures, load_cached_model_data
 from src.update_data import load_live_model_data
 
 
@@ -163,11 +174,23 @@ def render_api_status(api_connected):
         """,
         unsafe_allow_html=True,
     )
+    if api_connected:
+        st.caption("Data provided by football-data.org")
 
 
 def prepare_team_strength(raw_teams, settings):
     """Apply defaults, validate, and calculate team strength."""
     raw_teams = add_safe_defaults(raw_teams)
+    eliminated_teams = {
+        team
+        for match, pairing in CONFIRMED_ROUND_OF_32.items()
+        if match in CONFIRMED_KNOCKOUT_WINNERS
+        for team in pairing
+        if team != CONFIRMED_KNOCKOUT_WINNERS[match]
+    }
+    raw_teams.loc[
+        raw_teams["team"].isin(eliminated_teams), "eliminated"
+    ] = True
     validation_errors = validate_team_data(raw_teams)
     if validation_errors:
         return raw_teams, None, validation_errors
@@ -325,21 +348,98 @@ def select_unique_pairings(round_probabilities, match_limit):
     return pd.DataFrame(selected_rows, columns=round_probabilities.columns)
 
 
-def load_pairing_snapshot():
+def load_pairing_snapshot(fixtures, teams=None):
     """Load the latest saved matchup probabilities."""
     if not LATEST_PAIRING_PREDICTIONS_CSV.exists():
         return pd.DataFrame()
     try:
-        return pd.read_csv(LATEST_PAIRING_PREDICTIONS_CSV)
+        snapshot = pd.read_csv(LATEST_PAIRING_PREDICTIONS_CSV)
     except (OSError, pd.errors.EmptyDataError):
         return pd.DataFrame()
+    if (
+        "bracket_signature" not in snapshot
+        or snapshot["bracket_signature"].iloc[0]
+        != bracket_signature(fixtures, teams)
+    ):
+        return pd.DataFrame()
+    return snapshot
 
 
-def save_pairing_snapshot(pairing_probabilities, number_of_simulations):
+def bracket_signature(fixtures=None, teams=None):
+    """Fingerprint bracket state, venue context, and model inputs."""
+    confirmed = sorted(
+        (match, team_a, team_b)
+        for match, (team_a, team_b) in CONFIRMED_ROUND_OF_32.items()
+    )
+    winners = sorted(CONFIRMED_KNOCKOUT_WINNERS.items())
+    model_inputs = []
+    if teams is not None and not teams.empty:
+        signature_columns = [
+            column
+            for column in [
+                "team",
+                "strength_score",
+                "historical_elo",
+                "derived_form_score",
+                "tournament_position_component",
+                "expected_lineup_score",
+                "goalkeeper_score",
+                "injury_impact",
+                "suspension_impact",
+                "market_implied_prob",
+            ]
+            if column in teams.columns
+        ]
+        model_inputs = (
+            teams[signature_columns]
+            .sort_values("team")
+            .round(6)
+            .fillna(0)
+            .to_dict("records")
+        )
+    completed = []
+    if fixtures is not None and not fixtures.empty:
+        required = {
+            "team_home",
+            "team_away",
+            "match_status",
+            "goals_home",
+            "goals_away",
+        }
+        if required.issubset(fixtures.columns):
+            completed_rows = fixtures.loc[
+                fixtures["match_status"].isin({"FT", "AET", "PEN"})
+            ]
+            completed = sorted(
+                (
+                    str(row.team_home),
+                    str(row.team_away),
+                    str(row.goals_home),
+                    str(row.goals_away),
+                )
+                for row in completed_rows.itertuples(index=False)
+            )
+    payload = json.dumps(
+        {
+            "confirmed": confirmed,
+            "winners": winners,
+            "match_contexts": CONFIRMED_MATCH_CONTEXTS,
+            "model_inputs": model_inputs,
+            "completed": completed,
+        },
+        separators=(",", ":"),
+    ).encode()
+    return hashlib.sha256(payload).hexdigest()[:16]
+
+
+def save_pairing_snapshot(
+    pairing_probabilities, number_of_simulations, fixtures=None, teams=None
+):
     """Persist matchup probabilities for immediate display on future visits."""
     snapshot = pairing_probabilities.copy()
     snapshot["simulation_runs"] = number_of_simulations
     snapshot["generated_at"] = datetime.now().astimezone().isoformat(timespec="seconds")
+    snapshot["bracket_signature"] = bracket_signature(fixtures, teams)
     LATEST_PAIRING_PREDICTIONS_CSV.parent.mkdir(parents=True, exist_ok=True)
     snapshot.to_csv(LATEST_PAIRING_PREDICTIONS_CSV, index=False)
     return snapshot
@@ -347,10 +447,21 @@ def save_pairing_snapshot(pairing_probabilities, number_of_simulations):
 
 def render_projected_pairings(teams, fixtures, number_of_simulations):
     """Render an official bracket projection and pairing probabilities."""
-    st.subheader("Projected Upcoming Pairings")
+    st.subheader("Knockout Pairings")
+    teams_by_name = teams.set_index("team")
 
-    if "pairing_probabilities" not in st.session_state:
-        st.session_state["pairing_probabilities"] = load_pairing_snapshot()
+    current_signature = bracket_signature(fixtures, teams)
+    session_predictions = st.session_state.get("pairing_probabilities")
+    session_is_current = (
+        session_predictions is not None
+        and not session_predictions.empty
+        and "bracket_signature" in session_predictions
+        and session_predictions["bracket_signature"].iloc[0] == current_signature
+    )
+    if not session_is_current:
+        st.session_state["pairing_probabilities"] = load_pairing_snapshot(
+            fixtures, teams
+        )
 
     if st.button("Refresh matchup predictions", icon=":material/sync:"):
         progress_bar = st.progress(0)
@@ -362,13 +473,22 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
         )
         progress_bar.empty()
         st.session_state["pairing_probabilities"] = save_pairing_snapshot(
-            pairing_probabilities, number_of_simulations
+            pairing_probabilities, number_of_simulations, fixtures, teams
         )
 
     pairing_probabilities = st.session_state["pairing_probabilities"]
     if pairing_probabilities.empty:
         st.info("No saved matchup forecast is available yet.")
         return
+    saved_runs = (
+        int(pairing_probabilities["simulation_runs"].iloc[0])
+        if "simulation_runs" in pairing_probabilities
+        else number_of_simulations
+    )
+    pairing_probabilities = enforce_confirmed_round_of_32(
+        pairing_probabilities, saved_runs
+    )
+    st.session_state["pairing_probabilities"] = pairing_probabilities
 
     ordered_rounds = [
         "Round of 32",
@@ -402,22 +522,94 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
                 "simulations",
             ]
         ].copy()
+        outcome_rows = []
+        completed_winners = {
+            frozenset(CONFIRMED_ROUND_OF_32[match]): winner
+            for match, winner in CONFIRMED_KNOCKOUT_WINNERS.items()
+            if match in CONFIRMED_ROUND_OF_32
+        }
+        confirmed_matchups = {
+            pairing["teams"]
+            for pairing in confirmed_knockout_pairings().values()
+            if pairing["round"] == round_name
+        }
+        for pairing in round_matches.itertuples(index=False):
+            team_a = teams_by_name.loc[pairing.team_a]
+            team_b = teams_by_name.loc[pairing.team_b]
+            match_number = knockout_match_number(
+                round_name, pairing.team_a, pairing.team_b
+            )
+            team_a, team_b = apply_match_context(
+                team_a, team_b, match_number
+            )
+            completed_winner = completed_winners.get(
+                frozenset((pairing.team_a, pairing.team_b))
+            )
+            if round_name == "Round of 32" and completed_winner:
+                winner = completed_winner
+                eliminated = (
+                    pairing.team_b
+                    if winner == pairing.team_a
+                    else pairing.team_a
+                )
+                winner_probability = 1.0
+                status = "Completed"
+            else:
+                probability_a = advancement_probability(team_a, team_b)
+                if probability_a >= 0.5:
+                    winner = pairing.team_a
+                    eliminated = pairing.team_b
+                    winner_probability = probability_a
+                else:
+                    winner = pairing.team_b
+                    eliminated = pairing.team_a
+                    winner_probability = 1 - probability_a
+                status = (
+                    "Confirmed matchup"
+                    if frozenset((pairing.team_a, pairing.team_b))
+                    in confirmed_matchups
+                    else "Projected"
+                )
+            outcome_rows.append(
+                {
+                    "Venue": (
+                        CONFIRMED_MATCH_CONTEXTS.get(match_number, {}).get(
+                            "stadium", "TBD"
+                        )
+                    ),
+                    "Altitude (m)": (
+                        CONFIRMED_MATCH_CONTEXTS.get(match_number, {}).get(
+                            "altitude_m", 0
+                        )
+                    ),
+                    "Status": status,
+                    "Winner": winner,
+                    "Eliminated": eliminated,
+                    "Winner chance %": round(winner_probability * 100, 1),
+                }
+            )
+        round_matches = pd.concat(
+            [round_matches.reset_index(drop=True), pd.DataFrame(outcome_rows)],
+            axis=1,
+        )
         round_matches.columns = [
             "Team A",
             "Team B",
             "Pairing probability %",
             "Simulations",
+            "Venue",
+            "Altitude (m)",
+            "Status",
+            "Winner",
+            "Eliminated",
+            "Winner chance %",
         ]
         round_matches["Pairing probability %"] = round_matches[
             "Pairing probability %"
         ].round(1)
         tab.dataframe(round_matches, width="stretch", hide_index=True)
 
-    simulation_runs = (
-        int(pairing_probabilities["simulation_runs"].iloc[0])
-        if "simulation_runs" in pairing_probabilities
-        else number_of_simulations
-    )
+    simulation_runs = saved_runs
     generated_at = (
         pairing_probabilities["generated_at"].iloc[0]
         if "generated_at" in pairing_probabilities
@@ -425,7 +617,9 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
     )
     st.caption(
         f"Saved {generated_at} from {simulation_runs:,} simulations. "
-        "Completed fixtures are held fixed."
+        "Completed fixtures are held fixed. Projected winners are conditional "
+        "on that matchup; later tabs independently show the most frequent "
+        "Monte Carlo pairings."
     )
 
 
@@ -485,7 +679,13 @@ def main():
             st.warning(error)
         st.stop()
 
-    fixtures = load_cached_fixtures() if api_connected else pd.DataFrame()
+    fixtures = load_available_fixtures()
+    completed_matches = (
+        fixtures["match_status"].isin({"FT", "AET", "PEN"}).sum()
+        if "match_status" in fixtures
+        else 0
+    )
+    st.caption(f"Tournament state: {completed_matches} completed matches loaded")
 
     render_model_quality(teams)
     render_team_table(teams)

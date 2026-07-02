@@ -24,7 +24,7 @@ data/fifa_rankings.csv
 README.md
 ```
 
-`app.py` is the Streamlit interface. The `src/` files hold the reusable logic for loading data, building features, predicting matches, simulating tournaments, explaining outputs, and fetching optional API-Football data.
+`app.py` is the Streamlit interface. The `src/` files hold the reusable logic for loading data, building features, predicting matches, simulating tournaments, explaining outputs, and fetching optional football-data.org data.
 
 ## Features
 
@@ -99,18 +99,18 @@ Then open the local URL shown in your terminal.
 
 ## Live API Data
 
-The app can use API-Football as a first live-data provider. The adapter is intentionally isolated in `src/api_client.py`, `src/api_config.py`, and `src/update_data.py` so another provider can be swapped in later.
+The app uses football-data.org v4 as its live-data provider. The adapter is isolated in `src/football_data_client.py`, `src/api_config.py`, and `src/update_data.py`.
 
-1. Create an API-Football account and get an API key from API-SPORTS:
+1. Create a football-data.org account and get an API token:
 
 ```text
-https://www.api-football.com/
+https://www.football-data.org/client/register
 ```
 
 2. Create a `.env` file in the project root:
 
 ```text
-API_FOOTBALL_KEY=your_api_key_here
+FOOTBALL_DATA_API_KEY=your_token_here
 ```
 
 3. Install dependencies:
@@ -125,11 +125,15 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-The app reads local snapshots on ordinary page loads and does not contact the provider during Streamlit widget reruns. Use **Refresh API data** in the sidebar when you explicitly want to replace the cached provider data. If `API_FOOTBALL_KEY` is missing, or if the API data is not yet a complete 48-team tournament dataset, the app silently uses the bundled tournament snapshot.
+The app reads local snapshots on ordinary page loads and does not contact the provider during Streamlit widget reruns. Use **Refresh API data** in the sidebar when you explicitly want to replace the cached provider data. If `FOOTBALL_DATA_API_KEY` is missing, or if World Cup coverage is unavailable on the account plan, the app uses the bundled tournament snapshot.
 
-Provider refreshes are cached locally for 12 hours. If a refresh fails, the app records the attempt and waits 30 minutes before another non-forced refresh. During that cooldown it uses cached CSV files when available, otherwise it falls back to sample data.
+Provider responses use endpoint-specific caches from two minutes for fixtures to one day for teams, while ordinary app loads use the local snapshot. If a refresh fails, the app records the attempt and waits 30 minutes before another non-forced refresh. During that cooldown it uses cached CSV files when available, otherwise it falls back to sample data.
 
 The latest matchup probabilities are stored in `data/latest_pairing_predictions.csv` and appear immediately when the app opens. **Refresh matchup predictions** reruns the local Monte Carlo model and replaces that snapshot; it does not make an API request.
+
+Each prediction snapshot fingerprints the bracket, venues, completed results, and model inputs. If any of those change, the app will not present the snapshot as current. Confirmed pairings always override simulated group placement, while host-nation context is applied to match outcome probabilities.
+
+When the provider has no usable World Cup fixtures, completed 2026 tournament results from `data/historical_results.csv` are converted into the same fixture schema. Those scores are held fixed, contribute actual points, goals, and goal difference to simulated group tables, and are included in the forecast fingerprint. Cached provider fixtures take precedence when available.
 
 Live API snapshots are saved locally:
 
@@ -142,9 +146,7 @@ data/live_odds.csv
 data/live_countries.csv
 ```
 
-When the World Cup league endpoint returns no teams, the app uses API-Football `GET /countries` as a country-directory fallback. That fallback keeps the simulator's required 48-team shape and includes Scotland when the provider returns it, but it should be treated as candidate-country data rather than confirmed tournament qualification data.
-
-API-Football fields like fixtures, standings, teams, match status, venue city, statistics, and odds are real when the provider returns them. Official FIFA rank and points come from `data/fifa_rankings.csv`; learned Elo, form, attack, and defense come from `data/historical_results.csv`. Missing xG, injuries, lineups, travel, and odds remain neutral rather than being presented as real observations.
+football-data.org fields such as fixtures, standings, squads, scorers, lineups, match status, venues, and available odds are real when the account plan returns them. Official FIFA rank and points come from `data/fifa_rankings.csv`; learned Elo, form, attack, and defense come from `data/historical_results.csv`. Advanced metrics that football-data.org does not provide remain neutral or come from the explicitly bundled tournament snapshot rather than being presented as live observations.
 
 ## Model and Validation
 

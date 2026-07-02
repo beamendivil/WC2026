@@ -13,6 +13,9 @@ API_FOOTBALL_LEAGUE = 1
 API_FOOTBALL_SEASON = 2026
 CACHE_TTL_HOURS = 12
 API_RETRY_COOLDOWN_MINUTES = 30
+API_MIN_REQUEST_INTERVAL_SECONDS = 0.35
+API_MAX_RETRIES = 3
+API_MAX_RETRY_AFTER_SECONDS = 30
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 ENV_FILE = PROJECT_ROOT / ".env"
@@ -21,9 +24,17 @@ LIVE_TEAMS_CSV = DATA_DIR / "live_teams.csv"
 LIVE_FIXTURES_CSV = DATA_DIR / "live_fixtures.csv"
 LIVE_STANDINGS_CSV = DATA_DIR / "live_standings.csv"
 LIVE_MATCH_STATS_CSV = DATA_DIR / "live_match_stats.csv"
+LIVE_PLAYER_STATS_CSV = DATA_DIR / "live_player_stats.csv"
+LIVE_AVAILABILITY_CSV = DATA_DIR / "live_availability.csv"
 LIVE_ODDS_CSV = DATA_DIR / "live_odds.csv"
 LIVE_COUNTRIES_CSV = DATA_DIR / "live_countries.csv"
 API_CACHE_META = DATA_DIR / "api_cache_timestamp.txt"
+API_RESPONSE_CACHE_DIR = DATA_DIR / "api_response_cache"
+FOOTBALL_DATA_BASE_URL = "https://api.football-data.org/v4"
+FOOTBALL_DATA_KEY_ENV = "FOOTBALL_DATA_API_KEY"
+FOOTBALL_DATA_COMPETITION = "WC"
+FOOTBALL_DATA_SEASON = 2026
+FOOTBALL_DATA_MIN_REQUEST_INTERVAL_SECONDS = 6.1
 LATEST_PAIRING_PREDICTIONS_CSV = DATA_DIR / "latest_pairing_predictions.csv"
 
 
@@ -59,5 +70,13 @@ def get_api_key():
 
 
 def has_api_key():
-    """Return True when API credentials are available."""
-    return bool(get_api_key())
+    """Return True when the active football-data.org credentials are available."""
+    return bool(get_football_data_key())
+
+
+def get_football_data_key():
+    """Read the football-data.org token from the environment or .env file."""
+    api_key = os.getenv(FOOTBALL_DATA_KEY_ENV, "").strip()
+    if not api_key or api_key.lower().startswith("your_"):
+        return ""
+    return api_key
