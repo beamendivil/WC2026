@@ -9,6 +9,7 @@ import streamlit as st
 from src.api_config import LATEST_PAIRING_PREDICTIONS_CSV
 from src.bracket import CONFIRMED_KNOCKOUT_WINNERS, CONFIRMED_ROUND_OF_32
 from src.bracket import confirmed_knockout_pairings
+from src.bracket import knockout_match_number
 from src.data_loader import add_safe_defaults, load_sample_data, validate_team_data
 from src.explanations import find_biggest_factor
 from src.features import add_strength_scores
@@ -16,6 +17,7 @@ from src.historical_model import load_historical_model
 from src.model import advancement_probability, match_probabilities
 from src.api_config import has_api_key
 from src.simulator import (
+    apply_match_context,
     enforce_confirmed_round_of_32,
     run_pairing_simulations,
     run_simulations,
@@ -492,6 +494,12 @@ def render_projected_pairings(teams, fixtures, number_of_simulations):
         for pairing in round_matches.itertuples(index=False):
             team_a = teams_by_name.loc[pairing.team_a]
             team_b = teams_by_name.loc[pairing.team_b]
+            match_number = knockout_match_number(
+                round_name, pairing.team_a, pairing.team_b
+            )
+            team_a, team_b = apply_match_context(
+                team_a, team_b, match_number
+            )
             completed_winner = completed_winners.get(
                 frozenset((pairing.team_a, pairing.team_b))
             )

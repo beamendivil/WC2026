@@ -17,7 +17,8 @@ from src.bracket import (
 from src.data_loader import add_safe_defaults, load_sample_data
 from src.features import add_strength_scores
 from src.simulator import predict_tournament_bracket, simulate_group_stage
-from src.simulator import enforce_confirmed_round_of_32
+from src.simulator import apply_match_context, enforce_confirmed_round_of_32
+from src.model import advancement_probability
 from src.update_data import load_bundled_world_cup_fixtures
 
 
@@ -170,6 +171,23 @@ class OfficialBracketTests(unittest.TestCase):
             confirmed[92]["teams"], frozenset(("Mexico", "England"))
         )
         self.assertNotIn(94, confirmed)
+
+    def test_azteca_context_boosts_mexico_against_england(self):
+        teams = sample_teams().set_index("team")
+        mexico = teams.loc["Mexico"]
+        england = teams.loc["England"]
+        baseline = advancement_probability(mexico, england)
+
+        mexico_at_azteca, england_at_azteca = apply_match_context(
+            mexico, england, 92
+        )
+        contextualized = advancement_probability(
+            mexico_at_azteca, england_at_azteca
+        )
+
+        self.assertEqual(mexico_at_azteca["stadium"], "Estadio Azteca")
+        self.assertEqual(mexico_at_azteca["altitude_m"], 2240)
+        self.assertGreater(contextualized, baseline)
 
     def test_completed_fixture_automatically_sets_knockout_winner(self):
         fixtures = pd.DataFrame(

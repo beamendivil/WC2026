@@ -121,6 +121,18 @@ KNOCKOUT_PATHS = {
     "Final": {104: (101, 102)},
 }
 
+# Match-specific conditions belong to the fixture, not permanently to either team.
+# Altitude is in meters above sea level.
+CONFIRMED_MATCH_CONTEXTS = {
+    92: {
+        "stadium": "Estadio Azteca",
+        "city": "Mexico City",
+        "country": "Mexico",
+        "altitude_m": 2240,
+        "home_team": "Mexico",
+    },
+}
+
 
 def confirmed_knockout_pairings():
     """Return downstream matchups whose feeder winners are already known."""
@@ -136,6 +148,20 @@ def confirmed_knockout_pairings():
                     ),
                 }
     return pairings
+
+
+def knockout_match_number(round_name, team_a, team_b):
+    """Return a known match number for a confirmed knockout pairing."""
+    teams = frozenset((team_a, team_b))
+    if round_name == "Round of 32":
+        for match_number, pairing in CONFIRMED_ROUND_OF_32.items():
+            if frozenset(pairing) == teams:
+                return match_number
+        return None
+    for match_number, pairing in confirmed_knockout_pairings().items():
+        if pairing["round"] == round_name and pairing["teams"] == teams:
+            return match_number
+    return None
 
 
 @lru_cache(maxsize=1)

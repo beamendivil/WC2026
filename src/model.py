@@ -23,6 +23,7 @@ def _live_adjustment(team):
         "context_component",
         "market_component",
         "tournament_position_component",
+        "match_context_component",
     )
     return sum(float(team.get(column, 0) or 0) for column in columns)
 

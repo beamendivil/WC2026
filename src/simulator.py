@@ -5,6 +5,7 @@ import pandas as pd
 
 from src.bracket import CONFIRMED_GROUP_POSITIONS
 from src.bracket import (
+    CONFIRMED_MATCH_CONTEXTS,
     CONFIRMED_KNOCKOUT_WINNERS,
     CONFIRMED_ROUND_OF_32,
     CONFIRMED_THIRD_PLACE_QUALIFIERS,
@@ -22,6 +23,33 @@ KNOCKOUT_ROUND_NAMES = {
 }
 
 COMPLETED_MATCH_STATUSES = {"FT", "AET", "PEN"}
+
+
+def apply_match_context(team_a, team_b, match_number):
+    """Attach bounded venue and altitude effects for a specific fixture."""
+    context = CONFIRMED_MATCH_CONTEXTS.get(match_number)
+    if not context:
+        return team_a, team_b
+
+    contextualized = []
+    altitude_ratio = min(max(float(context.get("altitude_m", 0)) / 2500, 0), 1)
+    for team in (team_a, team_b):
+        adjusted = team.copy()
+        team_name = team.get("team", getattr(team, "name", None))
+        is_home_team = team_name == context.get("home_team")
+        adjusted["stadium"] = context.get("stadium", "Unknown")
+        adjusted["venue_city"] = context.get("city", "Unknown")
+        adjusted["venue_country"] = context.get("country", "Unknown")
+        adjusted["altitude_m"] = context.get("altitude_m", 0)
+        # The host receives familiarity plus altitude acclimation. The visitor
+        # receives a smaller, bounded altitude-strain penalty.
+        adjusted["match_context_component"] = (
+            0.75 + 1.5 * altitude_ratio
+            if is_home_team
+            else -0.75 * altitude_ratio
+        )
+        contextualized.append(adjusted)
+    return tuple(contextualized)
 
 
 def simulate_group_match(team_a, team_b):
@@ -316,6 +344,7 @@ def simulate_official_bracket(qualified_teams, all_teams=None, fixtures=None):
     pairings = []
 
     def play_match(round_name, match_number, team_a, team_b):
+        team_a, team_b = apply_match_context(team_a, team_b, match_number)
         probability_a = advancement_probability(team_a, team_b)
         winner_name = find_completed_knockout_winner(
             fixtures, team_a, team_b
