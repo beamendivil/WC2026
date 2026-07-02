@@ -174,6 +174,8 @@ def render_api_status(api_connected):
         """,
         unsafe_allow_html=True,
     )
+    if api_connected:
+        st.caption("Data provided by football-data.org")
 
 
 def prepare_team_strength(raw_teams, settings):

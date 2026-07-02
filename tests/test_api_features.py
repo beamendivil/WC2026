@@ -7,11 +7,36 @@ import pandas as pd
 
 from src.api_client import APIFootballClient
 from app import bracket_signature
+from src.update_data import flatten_football_data_matches
 from src.update_data import aggregate_player_features
 from src.update_data import flatten_odds, flatten_player_stats
 
 
 class APIFeatureTests(unittest.TestCase):
+    def test_football_data_match_is_normalized_for_the_simulator(self):
+        matches = flatten_football_data_matches(
+            [
+                {
+                    "id": 92,
+                    "utcDate": "2026-07-05T20:00:00Z",
+                    "status": "FINISHED",
+                    "stage": "LAST_16",
+                    "homeTeam": {"id": 1, "name": "Mexico"},
+                    "awayTeam": {"id": 2, "name": "England"},
+                    "score": {
+                        "fullTime": {"home": 2, "away": 1},
+                        "penalties": {"home": None, "away": None},
+                    },
+                    "venue": "Mexico City Stadium",
+                }
+            ]
+        ).iloc[0]
+
+        self.assertEqual(matches["match_status"], "FT")
+        self.assertEqual(matches["team_home"], "Mexico")
+        self.assertEqual(matches["goals_home"], 2)
+        self.assertEqual(matches["venue_city"], "Mexico City Stadium")
+
     def test_prediction_cache_changes_when_model_inputs_change(self):
         teams = pd.DataFrame(
             [{"team": "Mexico", "strength_score": 60.0}]

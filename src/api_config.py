@@ -30,6 +30,11 @@ LIVE_ODDS_CSV = DATA_DIR / "live_odds.csv"
 LIVE_COUNTRIES_CSV = DATA_DIR / "live_countries.csv"
 API_CACHE_META = DATA_DIR / "api_cache_timestamp.txt"
 API_RESPONSE_CACHE_DIR = DATA_DIR / "api_response_cache"
+FOOTBALL_DATA_BASE_URL = "https://api.football-data.org/v4"
+FOOTBALL_DATA_KEY_ENV = "FOOTBALL_DATA_API_KEY"
+FOOTBALL_DATA_COMPETITION = "WC"
+FOOTBALL_DATA_SEASON = 2026
+FOOTBALL_DATA_MIN_REQUEST_INTERVAL_SECONDS = 6.1
 LATEST_PAIRING_PREDICTIONS_CSV = DATA_DIR / "latest_pairing_predictions.csv"
 
 
@@ -65,5 +70,13 @@ def get_api_key():
 
 
 def has_api_key():
-    """Return True when API credentials are available."""
-    return bool(get_api_key())
+    """Return True when the active football-data.org credentials are available."""
+    return bool(get_football_data_key())
+
+
+def get_football_data_key():
+    """Read the football-data.org token from the environment or .env file."""
+    api_key = os.getenv(FOOTBALL_DATA_KEY_ENV, "").strip()
+    if not api_key or api_key.lower().startswith("your_"):
+        return ""
+    return api_key
