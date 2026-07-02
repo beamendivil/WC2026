@@ -12,6 +12,7 @@ from src.api_config import LIVE_COUNTRIES_CSV, LIVE_ODDS_CSV, LIVE_STANDINGS_CSV
 from src.api_config import LIVE_TEAMS_CSV
 from src.api_config import has_api_key
 from src.data_loader import HOST_TEAMS, load_sample_data
+from src.historical_model import HISTORICAL_RESULTS_PATH, canonical_team_name
 
 
 COUNTRY_FALLBACK_TEAM_COUNT = 48
@@ -481,6 +482,73 @@ def load_cached_fixtures():
         return pd.read_csv(LIVE_FIXTURES_CSV)
     except (EmptyDataError, OSError):
         return pd.DataFrame()
+
+
+def load_bundled_world_cup_fixtures():
+    """Convert completed 2026 results into the simulator fixture schema."""
+    try:
+        results = pd.read_csv(HISTORICAL_RESULTS_PATH)
+    except (EmptyDataError, OSError):
+        return pd.DataFrame()
+
+    teams = load_sample_data()
+    group_by_team = teams.set_index("team")["group"].to_dict()
+    results["home_team"] = results["home_team"].map(canonical_team_name)
+    results["away_team"] = results["away_team"].map(canonical_team_name)
+    completed = results.loc[
+        (results["tournament"] == "FIFA World Cup")
+        & results["date"].astype(str).str.startswith("2026-")
+        & results["home_score"].notna()
+        & results["away_score"].notna()
+        & results["home_team"].isin(group_by_team)
+        & results["away_team"].isin(group_by_team)
+    ].copy()
+    completed = completed.loc[
+        completed["home_team"].map(group_by_team)
+        == completed["away_team"].map(group_by_team)
+    ]
+    if completed.empty:
+        return pd.DataFrame()
+
+    return pd.DataFrame(
+        {
+            "date": completed["date"],
+            "round": "Group Stage",
+            "group": completed["home_team"].map(group_by_team),
+            "team_home": completed["home_team"],
+            "team_away": completed["away_team"],
+            "goals_home": completed["home_score"].astype(int),
+            "goals_away": completed["away_score"].astype(int),
+            "match_status": "FT",
+            "data_source": "Bundled completed results",
+        }
+    )
+
+
+def load_available_fixtures():
+    """Combine bundled completed results with any cached provider fixtures."""
+    bundled = load_bundled_world_cup_fixtures()
+    cached = load_cached_fixtures()
+    if cached.empty:
+        return bundled
+    if bundled.empty:
+        return cached
+
+    combined = pd.concat([bundled, cached], ignore_index=True, sort=False)
+    combined["_match_key"] = combined.apply(
+        lambda row: "|".join(
+            sorted(
+                (
+                    canonical_team_name(row.get("team_home")),
+                    canonical_team_name(row.get("team_away")),
+                )
+            )
+        ),
+        axis=1,
+    )
+    return combined.drop_duplicates("_match_key", keep="last").drop(
+        columns="_match_key"
+    )
 
 
 if __name__ == "__main__":

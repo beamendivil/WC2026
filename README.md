@@ -131,6 +131,10 @@ Provider refreshes are cached locally for 12 hours. If a refresh fails, the app 
 
 The latest matchup probabilities are stored in `data/latest_pairing_predictions.csv` and appear immediately when the app opens. **Refresh matchup predictions** reruns the local Monte Carlo model and replaces that snapshot; it does not make an API request.
 
+Each prediction snapshot includes a fingerprint of the confirmed Round-of-32 fixtures. If new official pairings make the snapshot stale, the app will not present it as current. Confirmed pairings always override simulated group placement, while host-nation context is applied to match outcome probabilities.
+
+When the provider has no usable World Cup fixtures, completed 2026 tournament results from `data/historical_results.csv` are converted into the same fixture schema. Those scores are held fixed, contribute actual points, goals, and goal difference to simulated group tables, and are included in the forecast fingerprint. Cached provider fixtures take precedence when available.
+
 Live API snapshots are saved locally:
 
 ```text

@@ -41,14 +41,35 @@ THIRD_PLACE_MATCH_BY_WINNER = {
 # Confirmed fixtures override simulated group positions as the bracket fills in.
 CONFIRMED_ROUND_OF_32 = {
     73: ("South Africa", "Canada"),
+    74: ("Germany", "Paraguay"),
     75: ("Netherlands", "Morocco"),
     76: ("Brazil", "Japan"),
+    77: ("France", "Sweden"),
     78: ("Cote d'Ivoire", "Norway"),
+    79: ("Mexico", "Ecuador"),
+    80: ("Switzerland", "Algeria"),
     81: ("United States", "Bosnia and Herzegovina"),
-    86: ("Argentina", "Cabo Verde"),
+    82: ("Belgium", "Senegal"),
     83: ("Portugal", "Croatia"),
+    84: ("Spain", "Austria"),
+    85: ("England", "Congo DR"),
+    86: ("Argentina", "Cabo Verde"),
     87: ("Colombia", "Ghana"),
     88: ("Australia", "Egypt"),
+}
+
+# Completed knockout matches are observations, not probabilities. Their winners
+# stay fixed in every simulation and feed the correct team into the next round.
+CONFIRMED_KNOCKOUT_WINNERS = {
+    73: "Canada",
+    74: "Paraguay",
+    75: "Morocco",
+    76: "Brazil",
+    77: "France",
+    78: "Norway",
+    79: "Mexico",
+    82: "Belgium",
+    85: "England",
 }
 
 # Positions already settled by completed groups and confirmed knockout fixtures.
